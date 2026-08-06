@@ -9,7 +9,7 @@
 
 <br />
 <div align="center">
-  <a href="https://github.com/tylerdotai/agentbuildersclub">
+  <a href="https://github.com/Agent-Builders-Club/agentbuildersclub">
     <img src="public/abc-logo.jpg" alt="Agent Builders Club" width="80" height="80">
   </a>
 
@@ -30,7 +30,7 @@
     ·
     <a href="https://discord.gg/q8kEquTu3z">Discord</a>
     ·
-    <a href="https://github.com/tylerdotai/agentbuildersclub/issues">Issues</a>
+    <a href="https://github.com/Agent-Builders-Club/agentbuildersclub/issues">Issues</a>
   </p>
 </div>
 
@@ -139,7 +139,7 @@ Agent Builders Club started in DFW and is expanding as a global AI builder commu
 ### Installation
 
 ```bash
-git clone https://github.com/tylerdotai/agentbuildersclub
+git clone https://github.com/Agent-Builders-Club/agentbuildersclub
 cd agentbuildersclub
 cp .env.example .env.local
 pnpm install --no-frozen-lockfile
@@ -235,7 +235,7 @@ Full API docs: [agentbuildersclub.dev/llms.txt](https://www.agentbuildersclub.de
 
 ### Vercel
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/tylerdotai/agentbuildersclub)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/Agent-Builders-Club/agentbuildersclub)
 
 1. Connect the GitHub repository to Vercel.
 2. Add the required environment variables.
@@ -283,7 +283,7 @@ Thanks to everyone helping build Agent Builders Club.
 | [Tyler Delano](https://github.com/tylerdotai) | Maintainer and project lead |
 | [Anjal99](https://github.com/Anjal99) | Contributor |
 
-See the full GitHub contributor graph at [github.com/tylerdotai/agentbuildersclub/graphs/contributors](https://github.com/tylerdotai/agentbuildersclub/graphs/contributors).
+See the full GitHub contributor graph at [github.com/Agent-Builders-Club/agentbuildersclub/graphs/contributors](https://github.com/Agent-Builders-Club/agentbuildersclub/graphs/contributors).
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -298,20 +298,20 @@ Distributed under the MIT License. See `LICENSE` for more information.
 - **Maintainer:** Tyler Delano
 - **X / Twitter:** [@tylerdotai](https://x.com/tylerdotai)
 - **Discord:** [Join the community](https://discord.gg/q8kEquTu3z)
-- **Project Link:** [https://github.com/tylerdotai/agentbuildersclub](https://github.com/tylerdotai/agentbuildersclub)
+- **Project Link:** [https://github.com/Agent-Builders-Club/agentbuildersclub](https://github.com/Agent-Builders-Club/agentbuildersclub)
 - **Live Site:** [https://www.agentbuildersclub.dev](https://www.agentbuildersclub.dev)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 [contributors-shield]: https://img.shields.io/badge/contributors-2-blue?style=for-the-badge
-[contributors-url]: https://github.com/tylerdotai/agentbuildersclub/graphs/contributors
+[contributors-url]: https://github.com/Agent-Builders-Club/agentbuildersclub/graphs/contributors
 [forks-shield]: https://img.shields.io/badge/forks-1-blue?style=for-the-badge
-[forks-url]: https://github.com/tylerdotai/agentbuildersclub/network/members
+[forks-url]: https://github.com/Agent-Builders-Club/agentbuildersclub/network/members
 [stars-shield]: https://img.shields.io/badge/stars-0-blue?style=for-the-badge
-[stars-url]: https://github.com/tylerdotai/agentbuildersclub/stargazers
+[stars-url]: https://github.com/Agent-Builders-Club/agentbuildersclub/stargazers
 [issues-shield]: https://img.shields.io/badge/issues-0-blue?style=for-the-badge
-[issues-url]: https://github.com/tylerdotai/agentbuildersclub/issues
+[issues-url]: https://github.com/Agent-Builders-Club/agentbuildersclub/issues
 [license-shield]: https://img.shields.io/badge/license-MIT-blue?style=for-the-badge
-[license-url]: https://github.com/tylerdotai/agentbuildersclub/blob/main/LICENSE
+[license-url]: https://github.com/Agent-Builders-Club/agentbuildersclub/blob/main/LICENSE
 [build-shield]: https://img.shields.io/badge/build-passing-brightgreen?style=for-the-badge
-[build-url]: https://github.com/tylerdotai/agentbuildersclub/actions
+[build-url]: https://github.com/Agent-Builders-Club/agentbuildersclub/actions

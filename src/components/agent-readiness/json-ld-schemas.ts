@@ -20,7 +20,7 @@ export function homepageSchema() {
       "https://discord.gg/q8kEquTu3z",
       "https://x.com/agntbuilderclub",
       "https://linkedin.com/company/agentbuildersclub",
-      "https://github.com/tylerdotai/agentbuildersclub",
+      "https://github.com/Agent-Builders-Club/agentbuildersclub",
     ],
     "areaServed": {
       "@type": "Place",

@@ -68,7 +68,7 @@ export function SkillsClient() {
         <section className="border-b border-border px-5 md:px-8 py-6">
           <div className="mx-auto max-w-5xl flex flex-wrap gap-3">
             <a
-              href="https://github.com/tylerdotai/agentbuildersclub/issues/new"
+              href="https://github.com/Agent-Builders-Club/agentbuildersclub/issues/new"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 bg-accent text-void font-mono text-xs uppercase tracking-widest px-5 py-3 hover:opacity-90 transition-opacity"

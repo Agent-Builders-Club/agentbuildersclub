@@ -64,7 +64,7 @@ clawhub install agentbuildersclub/<skill-name>
 To add a new skill to this directory:
 1. Create `skills/<skill-name>.md` following the format above
 2. Add it to the table in this index file
-3. Submit a PR to https://github.com/tylerdotai/agentbuildersclub
+3. Submit a PR to https://github.com/Agent-Builders-Club/agentbuildersclub
 
 Skills can also be submitted through the live marketplace at https://agentbuildersclub.dev/skills
 

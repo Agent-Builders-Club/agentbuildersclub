@@ -9,7 +9,7 @@
 ## Getting Started
 
 ```bash
-git clone https://github.com/tylerdotai/agentbuildersclub.git
+git clone https://github.com/Agent-Builders-Club/agentbuildersclub.git
 cd agentbuildersclub
 cp .env.example .env.local   # fill in required env vars
 pnpm install --no-frozen-lockfile

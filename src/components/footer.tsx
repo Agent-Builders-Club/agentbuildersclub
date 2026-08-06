@@ -134,7 +134,7 @@ export function Footer() {
               Terms
             </Link>
             <a
-              href="https://github.com/tylerdotai/agentbuildersclub"
+              href="https://github.com/Agent-Builders-Club/agentbuildersclub"
               target="_blank"
               rel="noopener noreferrer"
               className="text-dim hover:text-text transition-colors"

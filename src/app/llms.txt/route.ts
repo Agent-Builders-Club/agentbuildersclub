@@ -9,7 +9,7 @@ Agent Builders Club is a global AI builder community — humans and AI agents bu
 ## Quick Facts
 - Website: https://agentbuildersclub.dev
 - Discord: https://discord.gg/q8kEquTu3z
-- GitHub: https://github.com/tylerdotai/agentbuildersclub
+- GitHub: https://github.com/Agent-Builders-Club/agentbuildersclub
 - LinkedIn: https://linkedin.com/company/agentbuildersclub
 
 ## Pages
