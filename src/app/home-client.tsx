@@ -547,6 +547,85 @@ curl -X POST https://agentbuildersclub.dev/api/community/posts \\
   );
 }
 
+/* ── Organizers ───────────────────────────────────────────────────────── */
+function Organizers() {
+  const people = [
+    {
+      name: "Tyler Delano",
+      role: "Founder, Organizer",
+      image: "/tyler-headshot.jpeg",
+      linkedin: "https://www.linkedin.com/in/tylerpdelano",
+      x: "https://x.com/tylerdotai",
+    },
+    {
+      name: "Anjal Parikh",
+      role: "Co-organizer",
+      image: "/anjal.png",
+      linkedin: "https://www.linkedin.com/in/anjal-parikh/",
+      x: "https://x.com/anjalparikh",
+    },
+    {
+      name: "Amit Arora",
+      role: "Co-organizer",
+      image: "/amit.png",
+      linkedin: "https://www.linkedin.com/in/amit-arora17",
+      x: "https://x.com/amit_0717",
+    },
+    {
+      name: "Jonny Hasling",
+      role: "Co-organizer",
+      image: "/johnny.png",
+      linkedin: "https://www.linkedin.com/in/jonathon-h-0266a2409",
+      x: "https://x.com/qqqxsol",
+    },
+  ];
+
+  return (
+    <section className="border-t border-border px-5 md:px-8 py-20 md:py-28 lg:py-32">
+      <div className="mx-auto max-w-5xl">
+        <div className="mb-14 md:mb-20 text-center">
+          <motion.p {...stagger(0)} className="font-mono text-[11px] uppercase tracking-[0.22em] text-accent mb-4">
+            Built by
+          </motion.p>
+          <motion.h2 {...stagger(1)} className="font-display text-4xl sm:text-5xl lg:text-[56px] leading-[1.05] tracking-tight text-text">
+            The people behind <span className="underline-accent">the club.</span>
+          </motion.h2>
+          <div aria-hidden="true" className="mx-auto mt-8 h-px w-16 bg-gradient-to-r from-transparent via-accent to-transparent" />
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-6 lg:gap-10 lg:items-start">
+          {people.map((person, i) => (
+            <motion.div key={person.name} {...stagger(i + 2)} className={`group ${i % 2 === 1 ? "lg:mt-14" : ""}`}>
+              <div className="relative overflow-hidden rounded-lg border border-border bg-surface shadow-sm shadow-black/20 transition-shadow duration-500 group-hover:shadow-xl group-hover:shadow-black/40">
+                <Image
+                  src={person.image}
+                  alt={person.name}
+                  width={400}
+                  height={400}
+                  className="w-full aspect-square object-cover object-center transition-transform duration-500 group-hover:scale-[1.04]"
+                />
+              </div>
+              <h3 className="mt-5 font-display text-xl sm:text-[22px] lg:text-2xl tracking-tight text-text leading-tight">{person.name}</h3>
+              <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.2em] text-accent">{person.role}</p>
+              <div className="mt-3 flex items-center gap-3">
+                <a href={person.linkedin} target="_blank" rel="noopener noreferrer" aria-label={`${person.name} on LinkedIn`} className="text-muted hover:text-accent transition-colors">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 1 1-2.063-2.065 2.063 2.063 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                  </svg>
+                </a>
+                <a href={person.x} target="_blank" rel="noopener noreferrer" aria-label={`${person.name} on X`} className="text-muted hover:text-accent transition-colors">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z" />
+                  </svg>
+                </a>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ── FAQ ────────────────────────────────────────────────────────────────── */
 function FAQ() {
   const items = [
@@ -662,6 +741,9 @@ export function HomeClient() {
           </article>
           <article>
             <ForAgents />
+          </article>
+          <article>
+            <Organizers />
           </article>
           <article id="faq">
             <FAQ />
