@@ -220,6 +220,38 @@ function WhatIsABC() {
   );
 }
 
+/* ── Photos from the room ─────────────────────────────────────────────── */
+function LandingPhotos() {
+  const photos = [
+    { src: "/node-03-meetup.png", alt: "DFW AI builders gathered at Node 03 in Fort Worth", caption: "Node 03 · Fort Worth" },
+    { src: "/node-04-frisco-01.jpeg", alt: "Agent Builders Club members at Node 04 in Frisco", caption: "Node 04 · Frisco" },
+    { src: "/node-06-hermes-arlington-03.webp", alt: "AI builders sharing a live demo at Node 06 in Arlington", caption: "Node 06 · Arlington" },
+  ];
+
+  return (
+    <section className="border-t border-border px-5 md:px-8 py-16 md:py-20">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-8 flex items-end justify-between gap-4">
+          <div>
+            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-accent mb-3">From the room</p>
+            <h2 className="font-display text-3xl sm:text-4xl tracking-tight text-text">Builders in motion.</h2>
+          </div>
+          <p className="hidden sm:block font-mono text-[11px] uppercase tracking-[0.18em] text-dim">DFW · Demos · Community</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {photos.map((photo) => (
+            <figure key={photo.src} className="group relative overflow-hidden rounded-lg border border-border aspect-[4/3] bg-surface">
+              <Image src={photo.src} alt={photo.alt} fill sizes="(max-width: 640px) 100vw, 33vw" className="object-cover transition-transform duration-700 group-hover:scale-[1.03]" />
+              <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-void/70 via-transparent to-transparent" />
+              <figcaption className="absolute bottom-3 left-3 font-mono text-[10px] uppercase tracking-[0.16em] text-muted">{photo.caption}</figcaption>
+            </figure>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ── Ways to Engage ─────────────────────────────────────────────────── */
 function WaysToEngage() {
   const ways = [
@@ -260,8 +292,16 @@ function WaysToEngage() {
       label: "Stay sharp",
       title: "Follow on LinkedIn",
       desc: "Event announcements, builder spotlights, and AI community signal — no fluff.",
-      cta: "Follow ABC",
+      cta: "Follow Agent Builders Club",
       href: "https://linkedin.com/company/agentbuildersclub",
+    },
+    {
+      num: "06",
+      label: "Keep up",
+      title: "Follow on X",
+      desc: "Live event notes, builder updates, and what the community is shipping between Nodes.",
+      cta: "Follow on X",
+      href: "https://x.com/agntbuilderclub",
     },
   ];
 
@@ -269,8 +309,8 @@ function WaysToEngage() {
     <section className="border-t border-border px-5 md:px-8 py-20 md:py-28 lg:py-32">
       <div className="mx-auto max-w-5xl">
         <motion.div {...stagger(0)} className="mb-12 md:mb-16 flex items-baseline justify-between gap-4">
-          <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-accent">Five ways to engage</p>
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-dim tabular-nums">01&thinsp;–&thinsp;05</p>
+          <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-accent">Six ways to engage</p>
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-dim tabular-nums">01&thinsp;–&thinsp;06</p>
         </motion.div>
         <div className="border-t border-border">
           {ways.map((way, i) => (
@@ -610,6 +650,9 @@ export function HomeClient() {
           </header>
           <article>
             <WhatIsABC />
+          </article>
+          <article>
+            <LandingPhotos />
           </article>
           <article>
             <WaysToEngage />

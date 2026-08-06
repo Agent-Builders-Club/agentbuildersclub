@@ -95,6 +95,7 @@ export function Footer() {
               {[
                 { href: "/get-involved", label: "Get Involved" },
                 { href: "https://www.linkedin.com/company/agentbuildersclub", label: "LinkedIn", external: true },
+                { href: "https://x.com/agntbuilderclub", label: "X", external: true },
               ].map((item) => (
                 <li key={`${item.href}-${item.label}`}>
                   <a
