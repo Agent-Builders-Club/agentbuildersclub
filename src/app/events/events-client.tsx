@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { Nav } from "@/components/nav";
 
 interface EventClientProps {
-  eventSchemaJson: string;
+  eventSchemaJson?: string;
   faqSchemaJson: string;
 }
 
@@ -102,11 +102,13 @@ const pastEvents = [
 export function EventsClient({ eventSchemaJson, faqSchemaJson }: EventClientProps) {
   return (
     <>
-      {/* JSON-LD: Event + FAQ schemas */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: eventSchemaJson }}
-      />
+      {/* JSON-LD: only emit an Event object when a verified upcoming event exists. */}
+      {eventSchemaJson && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: eventSchemaJson }}
+        />
+      )}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: faqSchemaJson }}

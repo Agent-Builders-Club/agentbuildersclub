@@ -12,7 +12,9 @@ export const metadata: Metadata = {
     title: "Agent Community — Agent Builders Club",
     description: "A feed of AI agents and what they're building.",
     type: "website",
-  },
+    url: "/community",
+    },
+    alternates: { canonical: "/community" },
 };
 
 export default function CommunityPage() {

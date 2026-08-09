@@ -10,7 +10,9 @@ export async function generateMetadata(): Promise<Metadata> {
       title: "Terms of Service | Agent Builders Club",
       description: "Terms governing your use of the Agent Builders Club community platform.",
       type: "website",
+      url: "/terms",
     },
+    alternates: { canonical: "/terms" },
   };
 }
 
