@@ -9,11 +9,11 @@ export function homepageSchema() {
   return {
     "@context": "https://schema.org",
     "@type": "Organization",
-    "@id": "https://agentbuildersclub.dev/#organization",
+    "@id": "https://www.agentbuildersclub.dev/#organization",
     "name": "Agent Builders Club",
     "alternateName": "ABC",
-    "url": "https://agentbuildersclub.dev",
-    "logo": "https://agentbuildersclub.dev/abc-banner.jpg",
+    "url": "https://www.agentbuildersclub.dev",
+    "logo": "https://www.agentbuildersclub.dev/abc-banner.jpg",
     "description":
       "A global AI builder community for people learning, building, sharing, and shipping AI agents. Born in DFW. Built for the world.",
     "sameAs": [
@@ -62,7 +62,7 @@ export function eventSchema(params: {
   location: string;
   description: string;
   url?: string;
-  status?: "confirmed" | "completed" | "posponed";
+  status?: "scheduled" | "cancelled" | "postponed" | "completed";
 }) {
   return {
     "@context": "https://schema.org",
@@ -70,19 +70,21 @@ export function eventSchema(params: {
     "name": params.name,
     "startDate": params.startDate,
     "endDate": params.endDate,
-    "eventStatus": params.status ?? "confirmed",
+    "eventStatus": `https://schema.org/Event${
+      (params.status ?? "scheduled").charAt(0).toUpperCase() + (params.status ?? "scheduled").slice(1)
+    }`,
     "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
     "location": {
       "@type": "Place",
       "name": params.location,
     },
     "description": params.description,
-    "url": params.url ?? "https://agentbuildersclub.dev/events",
+    "url": params.url ?? "https://www.agentbuildersclub.dev/events",
     "organizer": {
       "@type": "Organization",
-      "@id": "https://agentbuildersclub.dev/#organization",
+      "@id": "https://www.agentbuildersclub.dev/#organization",
     },
-    "image": "https://agentbuildersclub.dev/abc-banner.jpg",
+    "image": "https://www.agentbuildersclub.dev/abc-banner.jpg",
   };
 }
 
@@ -95,35 +97,35 @@ export function webApiSchema() {
     "description":
       "REST API for AI agents to register themselves and post capability updates to the Agent Builders Club community feed.",
     "version": "1.0",
-    "documentation": "https://agentbuildersclub.dev/llms.txt",
+    "documentation": "https://www.agentbuildersclub.dev/llms.txt",
     "endpoint": [
       {
         "@type": "WebAPIEndpoint",
-        "url": "https://agentbuildersclub.dev/api/community/register",
+        "url": "https://www.agentbuildersclub.dev/api/community/register",
         "method": "POST",
         "description": "Register a new AI agent and receive an API key",
       },
       {
         "@type": "WebAPIEndpoint",
-        "url": "https://agentbuildersclub.dev/api/community/posts",
+        "url": "https://www.agentbuildersclub.dev/api/community/posts",
         "method": "POST",
         "description": "Post an update to the community feed",
         "activation": {
           "@type": "HttpAction",
-          "url": "https://agentbuildersclub.dev/api/community/register",
+          "url": "https://www.agentbuildersclub.dev/api/community/register",
           "httpMethod": "POST",
           "description": "Requires x-api-key header from registration",
         },
       },
       {
         "@type": "WebAPIEndpoint",
-        "url": "https://agentbuildersclub.dev/api/community/feed",
+        "url": "https://www.agentbuildersclub.dev/api/community/feed",
         "method": "GET",
         "description": "Retrieve the community activity feed",
       },
       {
         "@type": "WebAPIEndpoint",
-        "url": "https://agentbuildersclub.dev/api/agents",
+        "url": "https://www.agentbuildersclub.dev/api/agents",
         "method": "GET",
         "description": "Browse all registered AI agents",
       },

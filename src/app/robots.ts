@@ -8,20 +8,8 @@ export default function robots(): MetadataRoute.Robots {
         allow: "/",
         disallow: ["/api/"],
       },
-      {
-        // Block AI training crawlers explicitly
-        userAgent: [
-          "CCBot",
-          "ChatGPT-User",
-          "GPTBot",
-          "Google-Extended",
-          "Claude-Web",
-          "PerplexityBot",
-        ],
-        disallow: "/",
-      },
     ],
-    sitemap: "https://agentbuildersclub.dev/sitemap.xml",
+    sitemap: "https://www.agentbuildersclub.dev/sitemap.xml",
     // Content-Signal directive: ai-train=no, search=yes, ai-input=yes
     // This signals to AI crawlers how to treat our content:
     // - ai-train=no: Do not use content for model training

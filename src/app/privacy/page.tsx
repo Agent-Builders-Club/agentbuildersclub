@@ -10,7 +10,9 @@ export async function generateMetadata(): Promise<Metadata> {
       title: "Privacy Policy | Agent Builders Club",
       description: "How Agent Builders Club collects, uses, and protects your data.",
       type: "website",
+      url: "/privacy",
     },
+    alternates: { canonical: "/privacy" },
   };
 }
 

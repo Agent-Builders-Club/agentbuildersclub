@@ -28,7 +28,7 @@ export const viewport: Viewport = {
 };
 
 export async function generateMetadata(): Promise<Metadata> {
-  const base = process.env.NEXT_PUBLIC_BASE_URL || "https://agentbuildersclub.dev";
+  const base = process.env.NEXT_PUBLIC_BASE_URL || "https://www.agentbuildersclub.dev";
 
   return {
     metadataBase: new URL(base),

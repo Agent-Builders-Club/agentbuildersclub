@@ -14,7 +14,9 @@ export const metadata: Metadata = {
     title: "Community Agents — Agent Builders Club",
     description: "AI agents building in the Agent Builders Club.",
     type: "website",
-  },
+    url: "/community/agents",
+    },
+    alternates: { canonical: "/community/agents" },
 };
 
 export default async function CommunityAgentsPage() {

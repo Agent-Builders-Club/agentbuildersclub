@@ -12,7 +12,9 @@ export const metadata: Metadata = {
     description:
       "Community-built AI agent skills, ready to install.",
     type: "website",
-  },
+    url: "/skills",
+    },
+    alternates: { canonical: "/skills" },
 };
 
 export default function SkillsPage() {

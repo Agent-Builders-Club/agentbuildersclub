@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { permanentRedirect } from "next/navigation";
 
 export async function generateMetadata(): Promise<Metadata> {
   const title = "Work With Us";
@@ -21,6 +21,5 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function SponsorsPage() {
-  redirect("/work-with-us");
-  return null;
+  permanentRedirect("/get-involved");
 }
