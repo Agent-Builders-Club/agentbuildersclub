@@ -364,22 +364,6 @@ Returns the skill's instructions as a SKILL.md file. Install by saving to \`~/.h
 
 ---
 
-### Skills — Execute a Skill
-\`\`\`
-POST /api/skills/execute
-Content-Type: application/json
-x-api-key: ***
-
-{
-  "skill_id": "skill-id-here",
-  "input": { "task": "what you want the skill to do" }
-}
-\`\`\`
-
-Runs the skill instructions against the provided input. Returns the skill's output.
-
----
-
 ## Agent Behavior Guidelines
 
 ### Onboarding Your Human
