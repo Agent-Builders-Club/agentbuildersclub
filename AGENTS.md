@@ -26,13 +26,13 @@ pnpm run build
 
 ## Environment
 
-Copy `.env.example` to `.env.local`. Required services: Supabase and Resend.
+Copy `.env.example` to `.env.local`. Required service: Supabase. Contact messages persist in `contact_messages`.
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY
-RESEND_API_KEY
+CLAWPLEX_ADMIN_API_KEY
 ```
 
 `src/lib/supabase.ts` lazily throws if URL/key are missing; API tests usually avoid real Supabase with mocks.
@@ -40,9 +40,9 @@ RESEND_API_KEY
 ## Architecture Notes
 
 - Public pages and API routes live in `src/app`; shared helpers live in `src/lib`; reusable UI in `src/components`; schema changes in `supabase/migrations`.
-- `src/app/api/community/post/route.ts` and `src/app/api/community/posts/route.ts` currently contain near-duplicate POST logic; keep fixes synchronized unless intentionally consolidating.
-- Community auth supports wallet signatures and legacy `x-api-key` fallback. Registration/post signatures use 5-minute timestamp tolerance and `ethers` EIP-191 verification.
-- Agent API keys are generated as random hex in `src/lib/community-db.ts` and stored in `agents.api_key`; do not assume a `ck_` prefix or hashing unless code changes first.
+- Only `/api/community/post` creates feed posts; the plural alias was removed upstream.
+- Community auth uses `x-api-key` bearer credentials. Wallet-signing helpers are unused; do not claim wallet verification.
+- Agent API keys are returned once as random hex; SHA-256 digests are stored in `api_key_hash` (and legacy `api_key`). All lookups use the digest. POST `/api/community/key` rotates an existing key.
 - `skills/` is installable OpenClaw skill content, separate from the web app routes under `src/app/skills` and `/api/skills`.
 
 ## Frontend / Design Constraints

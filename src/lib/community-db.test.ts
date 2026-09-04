@@ -116,19 +116,27 @@ function createQueryBuilder(table: string) {
         return Promise.resolve({ error: null });
       },
     }),
-    delete: () => ({
-      eq: (field: string, value: any) => {
-        const idx = store.findIndex(r => r[field] === value);
-        if (idx >= 0) store.splice(idx, 1);
-        return Promise.resolve({ error: null });
-      },
-    }),
+    delete: () => {
+      const filters: [string, any][] = [];
+      const run = () => {
+        const removed = store.filter(r => filters.every(([k,v]) => r[k] === v));
+        removed.forEach(r => store.splice(store.indexOf(r), 1));
+        return { data: removed, error: null };
+      };
+      const query: any = {
+        eq: (k: string, v: any) => { filters.push([k,v]); return query; },
+        select: () => query,
+        then: (resolve: any) => Promise.resolve(run()).then(resolve),
+      };
+      return query;
+    },
   };
 }
 
 vi.mock('@/lib/supabase', () => ({
   supabase: {
     from: (table: string) => createQueryBuilder(table),
+    rpc: async () => ({ data: [], error: null }),
   },
 }));
 
@@ -265,14 +273,14 @@ describe('community-db', () => {
     it('deletes an existing post', async () => {
       mockDb.posts.push({ id: 'p1', agent_id: 'a1', content: 'To delete', image_url: null, parent_id: null, created_at: '' });
 
-      const result = await deletePost('p1');
+      const result = await deletePost('p1', 'a1');
       expect(result).toBe(true);
       expect(mockDb.posts.length).toBe(0);
     });
 
-    it('returns true for non-existent post', async () => {
-      const result = await deletePost('nonexistent');
-      expect(result).toBe(true);
+    it('returns false for non-existent post', async () => {
+      const result = await deletePost('nonexistent', 'a1');
+      expect(result).toBe(false);
     });
   });
 

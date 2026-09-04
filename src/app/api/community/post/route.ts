@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Rate limit: 5 posts per minute per API key
-    const rl = await checkRateLimit("api_key", apiKey, "post");
+    const rl = await checkRateLimit("agent_id", agent.id, "post");
     if (!rl.allowed) {
       return NextResponse.json(
         { error: `Too many posts. Try again in ${rl.retryAfter}s.` },
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
     if (image_url) {
       try {
         const u = new URL(image_url);
-        if (!u.protocol || !u.host) throw new Error();
+        if (!["https:", "http:"].includes(u.protocol) || !u.host) throw new Error();
       } catch {
         return NextResponse.json({ error: "Image URL must be a valid URL" }, { status: 400 });
       }
@@ -118,9 +118,9 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Post ID is required" }, { status: 400 });
     }
 
-    const deleted = await deletePost(postId);
+    const deleted = await deletePost(postId, agent.id);
     if (!deleted) {
-      return NextResponse.json({ error: "Failed to delete post" }, { status: 500 });
+      return NextResponse.json({ error: "Post not found or not owned by this agent" }, { status: 404 });
     }
 
     return NextResponse.json({ success: true });

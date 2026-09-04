@@ -1,14 +1,10 @@
+import { hashApiKey } from "@/lib/api-key";
 import { NextRequest, NextResponse } from "next/server";
 import { Logger } from "@/lib/logger";
 import { supabase } from "@/lib/supabase";
-import { randomBytes } from "crypto";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
-
-function generateId(): string {
-  return randomBytes(8).toString("hex") + Date.now().toString(36);
-}
 
 export async function POST(
   req: NextRequest,
@@ -26,8 +22,8 @@ export async function POST(
     // Find agent by API key
     const { data: agent } = await supabase
       .from("agents")
-      .select("id")
-      .eq("api_key", apiKey)
+      .select("id, muted")
+      .eq("api_key_hash", hashApiKey(apiKey))
       .single();
 
     if (!agent) {
@@ -35,8 +31,10 @@ export async function POST(
       return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
     }
 
+    if (agent.muted) return NextResponse.json({ error: "Agent is muted" }, { status: 403 });
+
     // Rate limit: 20 upvotes per minute per API key
-    const rl = await checkRateLimit("api_key", apiKey, "upvote");
+    const rl = await checkRateLimit("agent_id", agent.id, "upvote");
     if (!rl.allowed) {
       return NextResponse.json(
         { error: `Too many upvotes. Try again in ${rl.retryAfter}s.` },
@@ -56,34 +54,9 @@ export async function POST(
       return NextResponse.json({ error: "Post not found" }, { status: 404 });
     }
 
-    // Check if already upvoted
-    const { data: existing } = await supabase
-      .from("upvotes")
-      .select("id")
-      .eq("post_id", postId)
-      .eq("agent_id", agent.id)
-      .single();
-
-    if (existing) {
-      // Remove upvote (toggle off)
-      await supabase.from("upvotes").delete().eq("id", existing.id);
-    } else {
-      // Add upvote
-      await supabase.from("upvotes").insert({
-        id: generateId(),
-        post_id: postId,
-        agent_id: agent.id,
-        created_at: new Date().toISOString(),
-      });
-    }
-
-    // Get new count
-    const { count } = await supabase
-      .from("upvotes")
-      .select("*", { count: "exact", head: true })
-      .eq("post_id", postId);
-
-    return NextResponse.json({ upvoted: !existing, count: count ?? 0 });
+    const { data, error } = await supabase.rpc("toggle_post_upvote", { p_post: postId, p_agent: agent.id });
+    if (error) throw error;
+    return NextResponse.json(data);
   } catch (err) {
     Logger.error("Upvote error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

@@ -1,37 +1,8 @@
+import { checkRateLimit, getClientIP } from "@/lib/rate-limit";
+import { getAgentByApiKey } from "@/lib/community-db";
 import { NextResponse } from "next/server";
 import { Logger } from "@/lib/logger";
 import { supabase } from "@/lib/supabase";
-
-// In-memory rate limit store: apiKey -> { count, resetAt }
-const rateLimitStore = new Map<
-  string,
-  { count: number; resetAt: number }
->();
-
-const RATE_LIMIT = 3;
-const RATE_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
-
-
-function checkRateLimit(apiKey: string): { allowed: boolean; reason?: string } {
-  const now = Date.now();
-  const entry = rateLimitStore.get(apiKey);
-
-  if (!entry || now > entry.resetAt) {
-    rateLimitStore.set(apiKey, { count: 1, resetAt: now + RATE_WINDOW_MS });
-    return { allowed: true };
-  }
-
-  if (entry.count >= RATE_LIMIT) {
-    const resetIn = Math.ceil((entry.resetAt - now) / 1000 / 60);
-    return {
-      allowed: false,
-      reason: `Rate limit reached. Try again in ${resetIn} minutes.`,
-    };
-  }
-
-  entry.count++;
-  return { allowed: true };
-}
 
 const VALID_CATEGORIES = [
   "research",
@@ -96,12 +67,15 @@ function validateSubmission(body: unknown): { valid: true; data: SkillSubmission
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const apiKey = (body.api_key as string | undefined) ?? "anonymous";
+    const apiKey = request.headers.get("x-api-key") || (typeof body?.api_key === "string" ? body.api_key : "");
+    const agent = apiKey ? await getAgentByApiKey(apiKey) : null;
+    if (apiKey && !agent) return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
+    if (agent?.muted) return NextResponse.json({ error: "Agent is muted" }, { status: 403 });
 
     // Rate limit check
-    const rateCheck = checkRateLimit(apiKey);
+    const rateCheck = await checkRateLimit(agent ? "agent_id" : "ip", agent?.id ?? getClientIP(request), "skill");
     if (!rateCheck.allowed) {
-      return NextResponse.json({ error: rateCheck.reason }, { status: 429 });
+      return NextResponse.json({ error: "Too many submissions" }, { status: 429 });
     }
 
     // Schema validation
@@ -111,7 +85,7 @@ export async function POST(request: Request) {
     }
 
     const { data } = validation;
-    const submittedBy = apiKey === "anonymous" ? "anonymous" : apiKey.slice(0, 12) + "...";
+    const submittedBy = agent?.name ?? "anonymous";
 
     // Store every submission as pending for human admin review.
     const { data: inserted, error: insertError } = await supabase
@@ -123,7 +97,7 @@ export async function POST(request: Request) {
         trigger_phrases: data.trigger_phrases,
         instructions: data.instructions,
         submitted_by: submittedBy,
-        agent_id: data.agent_id ?? null,
+        agent_id: agent?.id ?? null,
         approved: false,
         flagged: false,
       })

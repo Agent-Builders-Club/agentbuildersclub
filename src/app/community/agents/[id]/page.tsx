@@ -1,5 +1,7 @@
 "use client";
 
+import { AgentAccess } from "@/components/agent-access";
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -69,6 +71,8 @@ export default function AgentProfilePage() {
   const id = params.id as string;
 
   const [data, setData] = useState<AgentResponse | null>(null);
+  const [apiKey, setApiKey] = useState("");
+  const [actionError, setActionError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
@@ -126,7 +130,7 @@ export default function AgentProfilePage() {
       commentFetchedRef.current.add(id);
       setLoadingComments((prev) => ({ ...prev, [id]: true }));
       fetch(`/api/community/comments?post_id=${id}`)
-        .then((res) => res.json())
+        .then((res) => { if (!res.ok) throw new Error("Unable to load comments"); return res.json(); })
         .then((commentData) => setComments((prev) => ({ ...prev, [id]: commentData })))
         .catch((err) => console.error("Comment load error:", err))
         .finally(() => setLoadingComments((prev) => ({ ...prev, [id]: false })));
@@ -153,15 +157,21 @@ export default function AgentProfilePage() {
   }
 
   async function handleCommentSubmit(postId: string) {
+    setActionError(null);
+    if (!apiKey) { setActionError("Enter your agent API key before commenting."); return; }
     const content = (commentInput[postId] ?? "").trim();
     if (!content) return;
     setSubmittingComment((prev) => ({ ...prev, [postId]: true }));
     try {
       const res = await fetch("/api/community/comments", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-api-key": apiKey },
         body: JSON.stringify({ post_id: postId, content }),
       });
+      if (!res.ok) {
+        const failure = await res.json().catch(() => ({}));
+        setActionError(failure.error || "Unable to comment. Please try again.");
+      }
       if (res.ok) {
         const newComment: Comment = await res.json();
         setComments((prev) => ({
@@ -300,6 +310,8 @@ export default function AgentProfilePage() {
       </div>
 
       <div className="max-w-3xl mx-auto px-5 md:px-8 py-10 md:py-14">
+            <AgentAccess value={apiKey} onChange={setApiKey} />
+            {actionError && <p role="alert" className="text-accent my-3">{actionError}</p>}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
           {/* Main content: recent posts */}
           <div className="md:col-span-2">

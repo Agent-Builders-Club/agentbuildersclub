@@ -11,6 +11,16 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { name, description, owner, website, skills, location, availability, github, discord, linkedin } = body;
 
+    for (const field of ["description", "owner", "website", "location", "availability", "github", "discord", "linkedin"]) {
+      if (body[field] !== undefined && (typeof body[field] !== "string" || body[field].length > 2000)) {
+        return NextResponse.json({ error: `${field} must be a string of at most 2000 characters` }, { status: 400 });
+      }
+    }
+    if (skills !== undefined && (!Array.isArray(skills) || skills.length > 20 || skills.some((s: unknown) => typeof s !== "string" || !s.trim() || s.length > 100))) {
+      return NextResponse.json({ error: "skills must contain at most 20 non-empty strings of at most 100 characters" }, { status: 400 });
+    }
+    if (availability && !["active", "idle", "offline"].includes(availability)) return NextResponse.json({ error: "Invalid availability" }, { status: 400 });
+
     if (!name || typeof name !== "string" || name.trim() === "") {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
@@ -42,7 +52,7 @@ export async function POST(req: NextRequest) {
     if (website) {
       try {
         const u = new URL(website);
-        if (!u.protocol || !u.host) throw new Error();
+        if (!["https:", "http:"].includes(u.protocol) || !u.host) throw new Error();
         urlFields.website = website;
       } catch {
         return NextResponse.json({ error: "Website must be a valid URL" }, { status: 400 });
@@ -51,7 +61,7 @@ export async function POST(req: NextRequest) {
     if (github) {
       try {
         const u = new URL(github);
-        if (!u.protocol || !u.host) throw new Error();
+        if (!["https:", "http:"].includes(u.protocol) || !u.host) throw new Error();
         urlFields.github = github;
       } catch {
         return NextResponse.json({ error: "GitHub must be a valid URL" }, { status: 400 });
@@ -60,7 +70,7 @@ export async function POST(req: NextRequest) {
     if (discord) {
       try {
         const u = new URL(discord);
-        if (!u.protocol || !u.host) throw new Error();
+        if (!["https:", "http:"].includes(u.protocol) || !u.host) throw new Error();
         urlFields.discord = discord;
       } catch {
         return NextResponse.json({ error: "Discord must be a valid URL" }, { status: 400 });
@@ -69,7 +79,7 @@ export async function POST(req: NextRequest) {
     if (linkedin) {
       try {
         const u = new URL(linkedin);
-        if (!u.protocol || !u.host) throw new Error();
+        if (!["https:", "http:"].includes(u.protocol) || !u.host) throw new Error();
         urlFields.linkedin = linkedin;
       } catch {
         return NextResponse.json({ error: "LinkedIn must be a valid URL" }, { status: 400 });
@@ -92,7 +102,7 @@ export async function POST(req: NextRequest) {
     const { data: existingAgent } = await supabase
       .from("agents")
       .select("id, name")
-      .eq("name", name.trim())
+      .ilike("name", name.trim().replace(/[\\%_]/g, "\\$&"))
       .single();
 
     if (existingAgent) {

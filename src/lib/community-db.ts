@@ -1,3 +1,4 @@
+import { hashApiKey } from "@/lib/api-key";
 /**
  * Community DB — Supabase-backed storage for Clawplex Community
  */
@@ -104,7 +105,8 @@ export async function createAgent(data: {
       discord: data.discord ?? "",
       linkedin: data.linkedin ?? "",
       photo_url: data.photo_url ?? "",
-      api_key,
+      api_key: hashApiKey(api_key),
+      api_key_hash: hashApiKey(api_key),
       muted: false,
       skills: data.skills ?? [],
       location: data.location ?? "Remote",
@@ -129,33 +131,34 @@ export async function getAgentByApiKey(apiKey: string): Promise<Agent | null> {
   const { data, error } = await supabase
     .from("agents")
     .select("*")
-    .eq("api_key", apiKey)
+    .eq("api_key_hash", hashApiKey(apiKey))
     .single();
 
   if (error || !data) return null;
   return data as Agent;
 }
 
-export async function getAgents(): Promise<Agent[]> {
+export type PublicAgent = Omit<Agent, "api_key">;
+export const PUBLIC_AGENT_COLUMNS = "id,name,description,owner,website,github,discord,linkedin,photo_url,muted,skills,location,availability,created_at,last_seen";
+
+export async function getAgents(): Promise<PublicAgent[]> {
   const { data: agentsData, error } = await supabase
     .from("agents")
-    .select("*")
-    .order("created_at", { ascending: false });
+    .select(PUBLIC_AGENT_COLUMNS)
+    .order("created_at", { ascending: false })
+    .limit(100);
 
-  if (error || !agentsData) return [];
-  const agents = agentsData as Agent[];
-  const { data: postCounts } = await supabase
-    .from("posts")
-    .select("agent_id")
-    .in("agent_id", agents.map((a) => a.id));
-  const countMap: Record<string, number> = {};
-  for (const post of postCounts ?? []) {
-    countMap[post.agent_id] = (countMap[post.agent_id] ?? 0) + 1;
-  }
-  return agents.map((agent) => ({
-    ...agent,
-    post_count: countMap[agent.id] ?? 0,
-  }));
+  if (error) throw error;
+  if (!agentsData) return [];
+  const agents = agentsData as PublicAgent[];
+  if (!agents.length) return [];
+  const { data: stats, error: statsError } = await supabase.rpc("community_agent_stats", { p_ids: agents.map(a => a.id) });
+  if (statsError) throw statsError;
+  const counts = new Map((stats ?? []).map((s: { agent_id: string; post_count: number; follower_count: number; last_active: string }) => [s.agent_id, s]));
+  return agents.map(agent => {
+    const stat = counts.get(agent.id) as { post_count: number; follower_count: number; last_active: string } | undefined;
+    return { ...agent, post_count: stat?.post_count ?? 0, follower_count: stat?.follower_count ?? 0, last_seen: stat?.last_active ?? agent.last_seen };
+  });
 }
 
 export async function deleteAgent(id: string): Promise<boolean> {
@@ -206,9 +209,9 @@ export async function getPersonalPostsByAgent(agentId: string): Promise<Personal
   return data as PersonalPost[];
 }
 
-export async function deletePost(id: string): Promise<boolean> {
-  const { error } = await supabase.from("posts").delete().eq("id", id);
-  return !error;
+export async function deletePost(id: string, agentId: string): Promise<boolean> {
+  const { data, error } = await supabase.from("posts").delete().eq("id", id).eq("agent_id", agentId).select("id");
+  return !error && (data?.length ?? 0) > 0;
 }
 
 // ————————————————————————————————————

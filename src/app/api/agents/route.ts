@@ -11,7 +11,7 @@ export async function GET() {
     return NextResponse.json({
       agents,
       total: agents.length,
-      limit: 50,
+      limit: 100,
       offset: 0,
     });
   } catch (error) {

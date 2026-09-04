@@ -1,3 +1,5 @@
+import { getAgentByApiKey } from "@/lib/community-db";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
 import { Logger } from "@/lib/logger";
 import { supabase } from "@/lib/supabase";
@@ -42,22 +44,10 @@ export async function GET(
     let commentMap: Record<string, number> = {};
 
     if (postIds.length > 0) {
-      const [{ data: upvotes }, { data: comments }] = await Promise.all([
-        supabase.from("upvotes").select("post_id").in("post_id", postIds),
-        supabase.from("comments").select("post_id").in("post_id", postIds),
-      ]);
-
-      const upvoteCounts: Record<string, number> = {};
-      for (const u of upvotes ?? []) {
-        upvoteCounts[u.post_id] = (upvoteCounts[u.post_id] ?? 0) + 1;
-      }
-      upvoteMap = upvoteCounts;
-
-      const commentCounts: Record<string, number> = {};
-      for (const c of comments ?? []) {
-        commentCounts[c.post_id] = (commentCounts[c.post_id] ?? 0) + 1;
-      }
-      commentMap = commentCounts;
+      const { data: counts, error: countError } = await supabase.rpc("community_post_counts", { p_ids: postIds });
+      if (countError) throw countError;
+      upvoteMap = Object.fromEntries((counts ?? []).map((c: { post_id: string; upvote_count: number }) => [c.post_id, c.upvote_count]));
+      commentMap = Object.fromEntries((counts ?? []).map((c: { post_id: string; comment_count: number }) => [c.post_id, c.comment_count]));
     }
 
     const enrichedPosts = (posts ?? []).map((p: { id: string; content: string; image_url: string | null; created_at: string }) => ({
@@ -88,7 +78,7 @@ export async function GET(
         follower_count: followers ?? 0,
         following_count: following ?? 0,
       },
-      posts: enrichedPosts,
+      posts: agent.muted ? [] : enrichedPosts,
     });
   } catch (err) {
     Logger.error("Agent API error:", err);
@@ -102,38 +92,21 @@ export async function POST(
 ) {
   try {
     const { id: targetId } = await params;
-    const body = await req.json().catch(() => ({}));
-    const { action, viewer_id } = body;
-
-    if (!viewer_id || typeof viewer_id !== "string") {
-      return NextResponse.json({ error: "viewer_id is required" }, { status: 400 });
-    }
-
+    const key = req.headers.get("x-api-key");
+    const agent = key ? await getAgentByApiKey(key) : null;
+    if (!agent) return NextResponse.json({ error: "Valid API key required" }, { status: 401 });
+    if (agent.muted) return NextResponse.json({ error: "Agent is muted" }, { status: 403 });
+    const { action, viewer_id } = await req.json();
+    if (viewer_id && viewer_id !== agent.id) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (targetId === agent.id) return NextResponse.json({ error: "Cannot follow yourself" }, { status: 400 });
     if (action === "follow") {
-      // Toggle follow
-      const { data: existing } = await supabase
-        .from("follows")
-        .select("id")
-        .eq("follower_id", viewer_id)
-        .eq("following_id", targetId)
-        .single();
-
-      if (existing) {
-        await supabase
-          .from("follows")
-          .delete()
-          .eq("follower_id", viewer_id)
-          .eq("following_id", targetId);
-        return NextResponse.json({ following: false });
-      } else {
-        await supabase.from("follows").insert({
-          id: Buffer.from(Date.now().toString() + Math.random().toString()).toString("hex"),
-          follower_id: viewer_id,
-          following_id: targetId,
-          created_at: new Date().toISOString(),
-        });
-        return NextResponse.json({ following: true });
-      }
+      const rl = await checkRateLimit("agent_id", agent.id, "follow");
+      if (!rl.allowed) return NextResponse.json({ error: "Too many follows" }, { status: 429 });
+      const { data: target } = await supabase.from("agents").select("id").eq("id", targetId).single();
+      if (!target) return NextResponse.json({ error: "Agent not found" }, { status: 404 });
+      const { data, error } = await supabase.rpc("toggle_agent_follow", { p_follower: agent.id, p_following: targetId });
+      if (error) throw error;
+      return NextResponse.json({ following: data });
     }
 
     return NextResponse.json({ error: "Invalid action. Use: follow" }, { status: 400 });

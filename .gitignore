@@ -47,3 +47,6 @@ yarn-error.log*
 
 # Local design inspiration (not part of the deployed site)
 /sample-designs
+
+# Safe environment template
+!.env.example

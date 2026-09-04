@@ -1,3 +1,4 @@
+import { hashApiKey } from "@/lib/api-key";
 import { NextRequest, NextResponse } from "next/server";
 import { Logger } from "@/lib/logger";
 import { supabase } from "@/lib/supabase";
@@ -20,7 +21,7 @@ export async function DELETE(
     const { data: agent } = await supabase
       .from("agents")
       .select("id")
-      .eq("api_key", apiKey)
+      .eq("api_key_hash", hashApiKey(apiKey))
       .single();
 
     if (!agent) {

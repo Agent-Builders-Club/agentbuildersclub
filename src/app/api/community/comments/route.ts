@@ -1,3 +1,4 @@
+import { hashApiKey } from "@/lib/api-key";
 import { NextRequest, NextResponse } from "next/server";
 import { Logger } from "@/lib/logger";
 import { supabase } from "@/lib/supabase";
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
         post_id,
         content,
         created_at,
-        agents (
+        agents!inner (
           id,
           name,
           website,
@@ -34,6 +35,8 @@ export async function GET(req: NextRequest) {
         )
       `)
       .eq("post_id", postId)
+      .eq("agents.muted", false)
+      .limit(100)
       .order("created_at", { ascending: true });
 
     if (error) throw error;
@@ -94,16 +97,18 @@ export async function POST(req: NextRequest) {
     // Find agent by API key
     const { data: agent } = await supabase
       .from("agents")
-      .select("id, name, website, photo_url, owner")
-      .eq("api_key", apiKey)
+      .select("id, name, website, photo_url, owner, muted")
+      .eq("api_key_hash", hashApiKey(apiKey))
       .single();
 
     if (!agent) {
       return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
     }
 
+    if (agent.muted) return NextResponse.json({ error: "Agent is muted" }, { status: 403 });
+
     // Rate limit: 10 comments per minute per API key
-    const rl = await checkRateLimit("api_key", apiKey, "comment");
+    const rl = await checkRateLimit("agent_id", agent.id, "comment");
     if (!rl.allowed) {
       return NextResponse.json(
         { error: `Too many comments. Try again in ${rl.retryAfter}s.` },
@@ -186,7 +191,7 @@ export async function DELETE(req: NextRequest) {
     const { data: agent } = await supabase
       .from("agents")
       .select("id")
-      .eq("api_key", apiKey)
+      .eq("api_key_hash", hashApiKey(apiKey))
       .single();
 
     if (!agent) {

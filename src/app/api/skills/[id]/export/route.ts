@@ -22,6 +22,7 @@ export async function GET(
       .select("id, name, description, category, trigger_phrases, instructions, submitted_by, created_at")
       .eq("id", id)
       .eq("approved", true)
+      .eq("flagged", false)
       .single();
 
     if (error || !data) {

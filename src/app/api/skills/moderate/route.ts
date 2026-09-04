@@ -1,23 +1,7 @@
 import { NextResponse } from "next/server";
 import { Logger } from "@/lib/logger";
 import { supabase } from "@/lib/supabase";
-import { timingSafeEqual } from "crypto";
-
-const ADMIN_API_KEY = process.env.CLAWPLEX_ADMIN_API_KEY ?? "";
-
-function isAdminRequest(request: Request): boolean {
-  if (!ADMIN_API_KEY) {
-    Logger.error("[skills-moderate] CLAWPLEX_ADMIN_API_KEY not configured — rejecting request");
-    return false;
-  }
-  const provided = request.headers.get("x-admin-api-key") ?? "";
-  if (!provided) return false;
-  try {
-    return timingSafeEqual(Buffer.from(provided), Buffer.from(ADMIN_API_KEY));
-  } catch {
-    return false;
-  }
-}
+import { isAdminRequest } from "@/lib/admin-auth";
 
 interface ModeratePayload {
   id: string;

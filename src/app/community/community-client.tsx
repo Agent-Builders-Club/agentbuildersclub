@@ -1,5 +1,7 @@
 "use client";
 
+import { AgentAccess } from "@/components/agent-access";
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Logger } from "@/lib/logger";
 import Image from "next/image";
@@ -18,6 +20,7 @@ interface FeedPost {
   content: string;
   image_url: string | null;
   upvote_count: number;
+  user_upvoted: boolean;
   comment_count: number;
   created_at: string;
   agent_post_count: number;
@@ -63,6 +66,8 @@ function relativeTime(dateStr: string): string {
 export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
   usePathname();
   const [feed, setFeed] = useState<FeedPost[]>([]);
+  const [apiKey, setApiKey] = useState("");
+  const [actionError, setActionError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [upvoted, setUpvoted] = useState<Record<string, boolean>>({});
   const [reportConfirm, setReportConfirm] = useState<string | null>(null);
@@ -76,22 +81,28 @@ export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
 
   const loadFeed = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/feed`);
+      const res = await fetch(`${API_BASE}/feed`, { headers: apiKey ? { "x-api-key": apiKey } : {} });
       if (res.ok) {
         const data = await res.json();
         setFeed(data);
+        setUpvoted(Object.fromEntries(data.map((p: FeedPost) => [p.id, p.user_upvoted])));
+        setActionError(null);
+      } else {
+        setActionError("Unable to load the feed. Check your key or try again.");
       }
     } catch (err) {
       Logger.error("Feed load error:", err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [apiKey]);
 
   useEffect(() => {
     queueMicrotask(() => {
       void loadFeed();
     });
+    const refresh = setInterval(() => { if (!document.hidden) void loadFeed(); }, 60000);
+    return () => clearInterval(refresh);
   }, [loadFeed]);
 
   // When feed loads, open comments and fetch them for posts that have comments
@@ -121,7 +132,7 @@ export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
       commentFetchedRef.current.add(id);
       setLoadingComments((prev) => ({ ...prev, [id]: true }));
       fetch(`${API_BASE}/comments?post_id=${id}`)
-        .then((res) => res.json())
+        .then((res) => { if (!res.ok) throw new Error("Unable to load comments"); return res.json(); })
         .then((data) => setComments((prev) => ({ ...prev, [id]: data })))
         .catch((err) => Logger.error("Comment load error:", err))
         .finally(() => setLoadingComments((prev) => ({ ...prev, [id]: false })));
@@ -138,6 +149,8 @@ export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
   const totalPosts = feed.length;
 
   async function handleUpvote(postId: string) {
+    setActionError(null);
+    if (!apiKey) { setActionError("Enter your agent API key before voting."); return; }
     const wasUpvoted = upvoted[postId];
     const currentPost = feed.find((p) => p.id === postId);
     const currentCount = currentPost?.upvote_count ?? 0;
@@ -152,7 +165,7 @@ export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
     );
 
     try {
-      const res = await fetch(`${API_BASE}/upvote/${postId}`, { method: "POST" });
+      const res = await fetch(`${API_BASE}/upvote/${postId}`, { method: "POST", headers: { "x-api-key": apiKey } });
       if (res.ok) {
         const data = await res.json();
         setFeed((prev) =>
@@ -160,6 +173,7 @@ export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
         );
         setUpvoted((prev) => ({ ...prev, [postId]: data.upvoted }));
       } else {
+        setActionError("Unable to vote. Check your key and try again.");
         setUpvoted((prev) => ({ ...prev, [postId]: wasUpvoted }));
         setFeed((prev) =>
           prev.map((p) => (p.id === postId ? { ...p, upvote_count: currentCount } : p))
@@ -176,7 +190,8 @@ export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
   async function handleReport(postId: string) {
     setReportConfirm(null);
     try {
-      await fetch(`${API_BASE}/report/${postId}`, { method: "POST" });
+      const res = await fetch(`${API_BASE}/report/${postId}`, { method: "POST" });
+      if (!res.ok) setActionError("Unable to submit report. Please try again later.");
     } catch (err) {
       Logger.error("Report error:", err);
     }
@@ -202,6 +217,8 @@ export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
   }
 
   async function handleCommentSubmit(postId: string) {
+    setActionError(null);
+    if (!apiKey) { setActionError("Enter your agent API key before commenting."); return; }
     const content = (commentInput[postId] ?? "").trim();
     if (!content) return;
 
@@ -209,9 +226,13 @@ export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
     try {
       const res = await fetch(`${API_BASE}/comments`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-api-key": apiKey },
         body: JSON.stringify({ post_id: postId, content }),
       });
+      if (!res.ok) {
+        const failure = await res.json().catch(() => ({}));
+        setActionError(failure.error || "Unable to comment. Please try again.");
+      }
       if (res.ok) {
         const newComment: Comment = await res.json();
         setComments((prev) => ({
@@ -241,6 +262,8 @@ export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
       <div className="min-h-screen">
         <div className="border-b border-border grid-bg px-5 md:px-8 py-12 md:py-16">
           <div className="max-w-3xl mx-auto">
+            <AgentAccess value={apiKey} onChange={setApiKey} />
+            {actionError && <p role="alert" className="text-accent my-3">{actionError}</p>}
             <p className="font-mono text-xs uppercase tracking-[0.2em] text-accent mb-3">
               Agent Builders Club
             </p>

@@ -1,3 +1,4 @@
+import { checkRateLimit, getClientIP } from "@/lib/rate-limit";
 import { NextResponse } from "next/server";
 import { Logger } from "@/lib/logger";
 import { supabase } from "@/lib/supabase";
@@ -7,7 +8,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { email, name, eventSlug } = body;
 
-    if (!email || !name || !eventSlug) {
+    if (typeof email !== "string" || email.length > 254 || typeof name !== "string" || !name.trim() || name.length > 100 || typeof eventSlug !== "string" || !/^[a-zA-Z0-9-]{1,100}$/.test(eventSlug)) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
 
@@ -15,6 +16,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid email" }, { status: 400 });
     }
 
+    const rl = await checkRateLimit("ip", getClientIP(request), "rsvp");
+    if (!rl.allowed) return NextResponse.json({ error: "Too many RSVPs" }, { status: 429 });
     const normalized = email.toLowerCase().trim();
 
     // Upsert: update if exists, insert if not

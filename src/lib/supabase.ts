@@ -1,29 +1,19 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-let _supabase: SupabaseClient | null = null;
-
+let client: SupabaseClient | undefined;
 function getSupabase(): SupabaseClient {
-  if (_supabase) return _supabase;
-  const supabaseUrl =
-    process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "";
-  const supabaseKey =
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    process.env.SUPABASE_ANON_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-    process.env.SUPABASE_PUBLISHABLE_KEY ||
-    "";
-
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error(
-      "Supabase environment variables are required: set NEXT_PUBLIC_SUPABASE_URL/SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY/SUPABASE_ANON_KEY"
-    );
-  }
-  _supabase = createClient(supabaseUrl, supabaseKey);
-  return _supabase;
+  if (typeof window !== "undefined") throw new Error("Database client is server-only");
+  if (client) return client;
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+  if (!url || !key) throw new Error("SUPABASE_URL and a server-side Supabase service key are required");
+  client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  return client;
 }
-
 export const supabase = new Proxy({} as SupabaseClient, {
   get(_target, prop) {
-    return getSupabase()[prop as keyof SupabaseClient];
+    const instance = getSupabase();
+    const value = instance[prop as keyof SupabaseClient];
+    return typeof value === "function" ? value.bind(instance) : value;
   },
 });

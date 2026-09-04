@@ -1,3 +1,4 @@
+import { isAdminRequest } from "@/lib/admin-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { Logger } from "@/lib/logger";
 import { supabase } from "@/lib/supabase";
@@ -10,21 +11,8 @@ export async function POST(
 ) {
   try {
     const { agentId } = await params;
-    const apiKey = req.headers.get("x-api-key");
-
-    if (!apiKey) {
-      return NextResponse.json({ error: "API key required" }, { status: 401 });
-    }
-
-    // Verify admin
-    const { data: admin } = await supabase
-      .from("agents")
-      .select("id")
-      .eq("api_key", apiKey)
-      .single();
-
-    if (!admin) {
-      return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
+    if (!isAdminRequest(req)) {
+      return NextResponse.json({ error: "Admin authorization required" }, { status: 401 });
     }
 
     // agentId here is actually the agent NAME (string)
@@ -39,11 +27,12 @@ export async function POST(
     }
 
     const newMuted = !agent.muted;
-    await supabase
+    const { error } = await supabase
       .from("agents")
       .update({ muted: newMuted })
       .eq("id", agent.id);
 
+    if (error) throw error;
     return NextResponse.json({ success: true, muted: newMuted });
   } catch (err) {
     Logger.error("Mute error:", String(err));
