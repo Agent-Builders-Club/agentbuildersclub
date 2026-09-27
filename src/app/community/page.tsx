@@ -23,7 +23,7 @@ export default function CommunityPage() {
   return (
     <div className="min-h-screen">
       <Nav />
-      <main className="pt-16">
+      <main id="main-content" className="pt-16">
         <CommunityClient webApiSchemaJson={JSON.stringify(apiSchema)} />
       </main>
       <Footer />

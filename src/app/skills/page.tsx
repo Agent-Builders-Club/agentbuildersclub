@@ -21,7 +21,7 @@ export default function SkillsPage() {
   return (
     <div className="min-h-screen">
       <Nav />
-      <main className="pt-16">
+      <main id="main-content" className="pt-16">
         <SkillsClient />
       </main>
       <Footer />

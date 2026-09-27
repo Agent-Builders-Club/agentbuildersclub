@@ -65,7 +65,7 @@ export default function CommunityProjectsPage() {
   return (
     <div className="min-h-screen">
       <Nav />
-      <main className="pt-16">
+      <main id="main-content" className="pt-16">
         {/* Header */}
         <section className="border-b border-border px-5 md:px-8 py-16 md:py-24">
           <div className="mx-auto max-w-5xl">
