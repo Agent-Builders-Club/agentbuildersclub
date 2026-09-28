@@ -1,0 +1,41 @@
+name: Worker foundation (local only)
+
+on:
+  pull_request:
+    paths:
+      - "worker/**"
+      - ".github/workflows/worker-foundation.yml"
+  push:
+    branches: [main]
+    paths:
+      - "worker/**"
+      - ".github/workflows/worker-foundation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  local-d1-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          package-manager-cache: false
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test:e2e
+      - run: npm run dry-run
+      - name: Upload local-only E2E artifact
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: worker-foundation-e2e
+          path: worker/artifacts/e2e.json
+          if-no-files-found: warn
+          retention-days: 14
