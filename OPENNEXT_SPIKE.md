@@ -10,15 +10,17 @@ On the security-remediated Next 16.3.6 graph, OpenNext Cloudflare 1.20.6 and Wra
 pnpm install --frozen-lockfile
 mkdir -p artifacts/opennext
 pnpm audit --json > artifacts/opennext/audit.json
-pnpm run test:cf-credentials
 pnpm run build # ordinary default Turbopack / Vercel path
 pnpm run build:cf
+pnpm run test:cf-credentials # needs the fresh compiled config for direct preview checks
 node scripts/spike-opennext.mjs
 pnpm run format:check && pnpm run lint && pnpm run typecheck
 pnpm exec wrangler deploy --dry-run --outdir artifacts/opennext/dry-run
 ```
 
-`build:cf` first refuses every local `.env*` file (except the inert `.env.example`) and `.dev.vars*` file, including `.env.production.local`, and inherited Supabase, database, admin, and resend credential variable names. The same guard runs before direct `pnpm run preview:cf` and preview smoke. Refusals log names only, never values; the synthetic regression test exercises both file and process-environment refusal without live credentials. CI runs these existing guard checks via `pnpm run test:cf-credentials` independently of the ordinary Next build. The smoke binds preview to loopback, aborts external/browser API requests, shuts down its server, and writes `artifacts/opennext/smoke.json`, `preview.log`, and `home.png`. Run from a credential-free shell and checkout; ordinary `pnpm run build` is unchanged and does not run this guard. The dry-run is packaging only; **do not run `deploy`, `upload`, or `migrate`** from this prototype. `worker/` is a separate local-only D1 foundation and is not wired to this frontend.
+`build:cf` first refuses every local `.env*` file (except the inert `.env.example`) and `.dev.vars*` file, including `.env.production.local`, and inherited Supabase, database, admin, and resend credential variable names. The same guard runs before `preview:cf` and preview smoke. **Direct** `pnpm exec opennextjs-cloudflare build` loads the guarded `open-next.config.ts` before compilation; direct `preview` imports its compiled edge copy and refuses before Wrangler. Refusals log names only, never values. The synthetic E2E regression invokes both binaries with inherited and local-file credentials, requires a refusal (not merely nonzero/timeout), and runs after a fresh adapter build so preview cannot pass on missing artifacts. CI builds the adapter, runs these checks, launches the loopback Chromium/HTTP smoke, performs a guarded Wrangler dry-run and uploads ignored local evidence. The smoke aborts external/browser API requests, shuts down its server, and writes `artifacts/opennext/smoke.json`, `preview.log`, and `home.png`. Run from a credential-free shell and checkout; ordinary `pnpm run build` is unchanged and does not run this guard. The dry-run is packaging only; **do not run `deploy`, `upload`, or `migrate`** from this prototype. `worker/` is a separate local-only D1 foundation and is not wired to this frontend.
+
+**Boundary:** Preview uses `.open-next/.build/open-next.config.edge.mjs`, not the current source config. A stale/tampered pre-guard compiled artifact (or an explicitly substituted config via `--openNextConfigPath`) bypasses the source guard; remove `.open-next` and rebuild before preview, and do not treat this as a security boundary against someone controlling the checkout or generated files. Direct clean builds still use Next's default Turbopack and may hit the known middleware trace failure; use `build:cf` for the supported local adapter build.
 
 ## Observed
 
@@ -26,7 +28,7 @@ pnpm exec wrangler deploy --dry-run --outdir artifacts/opennext/dry-run
 - Webpack adapter build passed, creating `.open-next/worker.js`. Wrangler local preview passed homepage/events HTML, robots, sitemap, llms, 404, legacy-host 308, image transformation of `/hero-lobster.webp`, and Chromium home + client navigation with no page errors. Artifacts are generated locally and ignored.
 - `wrangler deploy --dry-run` succeeded: 192 assets, Worker gzip 1470.54 KiB. This only establishes packageability, not Cloudflare deployment or free/paid quota fit in all contexts.
 - Without database bindings/credentials, `/api/skills` returns 500 (`{"error":"Server error"}`), explicitly checked by the smoke; this is **not backend parity**. The local image binding processed a public file; remote-origin transforms, billing and account configuration are untested. An app-route `/icon.png` does not work as an image optimizer upstream (404), whereas a public image does.
-- The merged security override set (including `sharp@0.34.5` to `0.35.5`) and patched Tailwind remain in `package.json`/the regenerated lockfile. Frozen install and `pnpm audit --json` passed with zero info/low/moderate/high/critical advisories; the normal build remained Turbopack, whereas only the adapter build selected webpack. CI retains Actions checkout/setup-node v7 and runs the guard independently.
+- The merged security override set (including `sharp@0.34.5` to `0.35.5`) and patched Tailwind remain in `package.json`/the regenerated lockfile. Frozen install and `pnpm audit --json` passed with zero info/low/moderate/high/critical advisories; the normal build remained Turbopack, whereas only the adapter build selected webpack. CI runs the guard after a fresh adapter build, then local smoke and dry-run.
 - `pnpm run lint`, `pnpm run typecheck`, and `git diff --check` passed after excluding generated `.open-next` from ESLint.
 
 ## Production/staging prerequisites not exercised
