@@ -19,7 +19,7 @@ npm run test:e2e
 npm run dry-run
 ```
 
-The E2E creates `artifacts/d1-fresh` from scratch, applies `0001_feed.sql` via `wrangler d1 migrations apply DB --local --persist-to ...`, confirms no pending migrations via `migrations list`, inserts deterministic SQL through `wrangler d1 execute`, tests constraints, starts real `wrangler dev --local` on `127.0.0.1:18769` against that DB, drives HTTP, then terminates it. It generates a random token in temporary ignored `.dev.vars`, removes it even on failure, never records it in `artifacts/e2e.json`, and deliberately drops a table *after* the feed checks to verify generic 503. The artifact is repeatable and ignored, not committed. Do not run alongside another listener on that test port. `npm run dry-run` bundles only; it is not a remote deployment.
+The E2E creates `artifacts/d1-fresh` from scratch, applies `0001_feed.sql` via `wrangler d1 migrations apply DB --local --persist-to ...`, confirms no pending migrations via `migrations list`, inserts deterministic SQL through `wrangler d1 execute`, tests constraints, starts real `wrangler dev --local` on an allocated `127.0.0.1` loopback port against that DB, confirms the spawned process remains alive and serves the expected synthetic fixture, drives HTTP, then terminates it. It clears any prior success artifact before setup, generates a random token in temporary ignored `.dev.vars`, removes it even on failure, never records it in `artifacts/e2e.json`, and deliberately drops a table *after* the feed checks to verify generic 503. The artifact is repeatable and ignored, not committed. `npm run dry-run` bundles only; it is not a remote deployment.
 
 ## Release gates / deferrals
 

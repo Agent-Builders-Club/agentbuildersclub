@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+import socket
 import subprocess
 import time
 import urllib.error
@@ -12,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 WRANGLER = ROOT / 'node_modules/.bin/wrangler'
 ARTIFACT = ROOT / 'artifacts' / 'e2e.json'
 PERSIST = ROOT / 'artifacts' / 'd1-fresh'
-PORT = 18769
+PORT = None
 TOKEN = secrets.token_urlsafe(32)
 
 
@@ -43,6 +44,11 @@ def check(ok, name, checks):
 
 def main():
     import shutil
+    global PORT
+    ARTIFACT.unlink(missing_ok=True)
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+        listener.bind(('127.0.0.1', 0))
+        PORT = listener.getsockname()[1]
     shutil.rmtree(PERSIST, ignore_errors=True)
     PERSIST.mkdir(parents=True)
     args = ['--local', '--persist-to', str(PERSIST)]
@@ -70,15 +76,19 @@ def main():
     try:
         server = subprocess.Popen([str(WRANGLER),'dev','--local','--ip','127.0.0.1','--port',str(PORT),'--persist-to',str(PERSIST)], cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env={**os.environ, 'WRANGLER_SEND_METRICS':'false'})
         for _ in range(60):
+            if server.poll() is not None:
+                raise RuntimeError('wrangler dev exited before readiness')
             try:
-                request()
-                break
-            except (urllib.error.URLError, TimeoutError):
+                status, _, body = request(token=TOKEN)
                 if server.poll() is not None:
-                    raise RuntimeError('wrangler dev exited')
-                time.sleep(.25)
+                    raise RuntimeError('wrangler dev exited while another listener answered')
+                if status == 200 and isinstance(body, list) and [row.get('id') for row in body] == ['z', 'y', 'x']:
+                    break
+            except (urllib.error.URLError, TimeoutError):
+                pass
+            time.sleep(.25)
         else:
-            raise RuntimeError('wrangler dev did not start')
+            raise RuntimeError('wrangler dev did not start with the expected fixture')
         for path in ['/v1/feed', '/v1/feed?offset=99999', '/unknown']:
             status, headers, body = request(path)
             check(status == 401 and body == {'error':'Unauthorized'}, 'uniform unauth ' + path, checks)
