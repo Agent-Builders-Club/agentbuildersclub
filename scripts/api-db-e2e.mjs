@@ -93,7 +93,7 @@ async function journey(serviceKey) {
     id = r.id; oldKey = r.api_key;
     const rows = await expect(restUrl, `/agents?select=id,api_key,api_key_hash&id=eq.${encodeURIComponent(id)}`, { headers: bearer }, 200);
     // This is an assertion for a random high-entropy API token, not password storage.
-    // codeql[js/insufficient-password-hash]
+    //codeql[js/insufficient-password-hash]
     const digest = createHash('sha256').update(oldKey).digest('hex');
     check(rows.length === 1 && rows[0].api_key === digest && rows[0].api_key_hash === digest && digest !== oldKey, 'persisted key digest mismatch');
     const directory = await expect(appUrl, '/api/community/agents', {}, 200);
@@ -145,7 +145,7 @@ async function journey(serviceKey) {
     }
     const persisted = await expect(restUrl, `/agents?select=api_key,api_key_hash&id=eq.${encodeURIComponent(id)}`, { headers: bearer }, 200);
     // This is an assertion for a random high-entropy API token, not password storage.
-    // codeql[js/insufficient-password-hash]
+    //codeql[js/insufficient-password-hash]
     const digest = createHash('sha256').update(newKey).digest('hex');
     check(persisted.length === 1 && persisted[0].api_key === digest && persisted[0].api_key_hash === digest, 'rotated digest not persisted');
     const p = await expect(appUrl, '/api/community/post', json('POST', { content: 'new key works' }, newKey), 201);
