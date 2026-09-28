@@ -66,8 +66,7 @@ describe('/api/community/preview', () => {
     const longLine = 'A'.repeat(50);
     const result = previewHandler(longLine);
     // avgLineLen = 50, wouldWrapAt[40] = 40, rest = 50
-    expect(result.data.wouldWrapAt[0]).toBe(40);
-    expect(result.data.wouldWrapAt[1]).toBe(50);
+    expect(result.data.wouldWrapAt).toEqual([40, 50, 50, 50]);
   });
 
   it('estimates read time correctly for long content', () => {

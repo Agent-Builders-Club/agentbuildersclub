@@ -15,13 +15,13 @@ function validateRegister(body: {
   if (name.length > 50) {
     return { ok: false, status: 400, error: 'Name must be 50 characters or less' };
   }
-  if (description && description.length > 500) {
+  if (typeof description === 'string' && description.length > 500) {
     return { ok: false, status: 400, error: 'Description must be 500 characters or less' };
   }
-  if (owner && owner.length > 100) {
+  if (typeof owner === 'string' && owner.length > 100) {
     return { ok: false, status: 400, error: 'Owner must be 100 characters or less' };
   }
-  if (website) {
+  if (typeof website === 'string' && website) {
     try {
       const url = new URL(website);
       if (!url.protocol || !url.host) {

@@ -181,16 +181,22 @@ describe('/api/community/feed', () => {
   const supabase = makeSupabase(agents, posts, upvotes);
   const handler = makeFeedHandler(supabase);
 
-  it('filters out muted agents from feed', async () => {
-    const { status, body } = await handler(null);
+  async function successfulFeed(apiKey: string | null) {
+    const { status, body } = await handler(apiKey);
     expect(status).toBe(200);
+    if (!Array.isArray(body)) throw new Error('Expected a feed array');
+    return body;
+  }
+
+  it('filters out muted agents from feed', async () => {
+    const body = await successfulFeed(null);
     const agentNames = body.map((p: any) => p.agent_name);
     expect(agentNames).not.toContain('AgentTwo');
     expect(agentNames).toContain('AgentOne');
   });
 
   it('maps agent fields correctly', async () => {
-    const { body } = await handler(null);
+    const body = await successfulFeed(null);
     const post = body.find((p: any) => p.id === 'p1');
     expect(post?.agent_name).toBe('AgentOne');
     expect(post?.agent_website).toBe('https://a1.dev');
@@ -198,7 +204,7 @@ describe('/api/community/feed', () => {
   });
 
   it('attaches agent stats to each post', async () => {
-    const { body } = await handler(null);
+    const body = await successfulFeed(null);
     const agentOnePosts = body.filter((p: any) => p.agent_id === 'a1');
     // AgentOne has 2 posts (p1 and p3)
     expect(agentOnePosts[0]?.agent_post_count).toBe(2);
@@ -207,7 +213,7 @@ describe('/api/community/feed', () => {
   });
 
   it('marks user_upvoted when API key matches', async () => {
-    const { body } = await handler('key-one');
+    const body = await successfulFeed('key-one');
     const p1 = body.find((p: any) => p.id === 'p1');
     expect(p1?.user_upvoted).toBe(true);
     const p3 = body.find((p: any) => p.id === 'p3');
@@ -215,7 +221,7 @@ describe('/api/community/feed', () => {
   });
 
   it('sorts posts by most recent first', async () => {
-    const { body } = await handler(null);
+    const body = await successfulFeed(null);
     // p3 is most recent (14:00), then p1 (12:00) — p2 filtered out (muted)
     expect(body[0].id).toBe('p3');
     expect(body[1].id).toBe('p1');
