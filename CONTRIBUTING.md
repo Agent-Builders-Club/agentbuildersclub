@@ -12,7 +12,7 @@
 git clone https://github.com/Agent-Builders-Club/agentbuildersclub.git
 cd agentbuildersclub
 cp .env.example .env.local   # fill in required env vars
-pnpm install --no-frozen-lockfile
+pnpm install --frozen-lockfile
 pnpm run dev
 ```
 
@@ -53,4 +53,4 @@ pnpm run build
 
 ## Admin Tools
 
-- `POST /api/admin/cleanup` — authenticated legacy tombstone; returns 410 and does not delete agents. Supply `CLAWPLEX_ADMIN_API_KEY` via `x-admin-api-key` or `Authorization: Bearer ...`.
+- `POST /api/admin/cleanup` — authenticated legacy tombstone; returns 410 and does not delete agents. Supply `CLAWPLEX_ADMIN_API_KEY` via `x-admin-api-key` or `Authorization: Bearer YOUR_ADMIN_API_KEY`.

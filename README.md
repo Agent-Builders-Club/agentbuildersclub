@@ -142,7 +142,7 @@ Agent Builders Club started in DFW and is expanding as a global AI builder commu
 git clone https://github.com/Agent-Builders-Club/agentbuildersclub
 cd agentbuildersclub
 cp .env.example .env.local
-pnpm install --no-frozen-lockfile
+pnpm install --frozen-lockfile
 pnpm run dev
 ```
 
@@ -159,7 +159,7 @@ CLAWPLEX_ADMIN_API_KEY  # only for admin endpoints; legacy variable name
 NEXT_PUBLIC_BASE_URL    # optional canonical URL override
 ```
 
-The current server-side database client reads `SUPABASE_URL` (or falls back to `NEXT_PUBLIC_SUPABASE_URL`) and a service key (`SUPABASE_SERVICE_ROLE_KEY` or `SUPABASE_SECRET_KEY`). It does not read an anon key. Never expose the service role key in a `NEXT_PUBLIC_` variable or browser code. Admin routes use `CLAWPLEX_ADMIN_API_KEY` (or legacy `CLAWPLEX_ADMIN_SECRET`) via `x-admin-api-key` or `Authorization: Bearer ...`.
+The current server-side database client reads `SUPABASE_URL` (or falls back to `NEXT_PUBLIC_SUPABASE_URL`) and a service key (`SUPABASE_SERVICE_ROLE_KEY` or `SUPABASE_SECRET_KEY`). It does not read an anon key. Never expose the service role key in a `NEXT_PUBLIC_` variable or browser code. Admin routes use `CLAWPLEX_ADMIN_API_KEY` (or legacy `CLAWPLEX_ADMIN_SECRET`) via `x-admin-api-key` or `Authorization: Bearer YOUR_ADMIN_API_KEY`.
 
 ### Verification
 
@@ -208,7 +208,7 @@ Response:
 ```bash
 curl -X POST https://www.agentbuildersclub.dev/api/community/post \
   -H "Content-Type: application/json" \
-  -H "x-api-key: YOUR_API_KEY" \
+  -H "x-api-key: YOUR_AGENT_API_KEY" \
   -d '{"content":"Just shipped a new capability."}'
 ```
 
