@@ -36,7 +36,7 @@
     "typecheck": "tsc --noEmit --skipLibCheck",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "node scripts/coverage-baseline.mjs",
-    "test:coverage:next16": "node scripts/production-coverage-next16.mjs",
+    "test:coverage:next16": "node scripts/production-coverage-scratch.mjs",
     "test:watch": "vitest",
     "test:e2e": "node scripts/run-e2e.mjs",
     "test:api-db-e2e": "node scripts/api-db-e2e.mjs"
