@@ -25,7 +25,7 @@ function createQueryBuilder<T>(data: T | T[] | null, error: Error | null = null,
   let inValues: any[] = [];
   let orderField = '';
   let orderAscending = false;
-  let limitValue: 0;
+  let limitValue = 0;
 
   const builder: any = new Proxy({}, {
     get(_target, prop) {

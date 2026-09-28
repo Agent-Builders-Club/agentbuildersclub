@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "format:check": "prettier --check package.json tsconfig.json .github/workflows/ci.yml",
     "typecheck": "tsc --noEmit --skipLibCheck",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest"
@@ -42,6 +43,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.26",
     "knip": "^6.4.1",
+    "prettier": "3.9.9",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.2"
