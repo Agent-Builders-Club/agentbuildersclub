@@ -18,7 +18,9 @@ rmSync(resolve(output, 'manifest.json'), { force: true });
 const run = (binary, args) => spawnSync(resolve(root, 'node_modules/.bin', binary), args, { cwd: root, env, stdio: 'inherit' });
 const build = run('next', ['build']);
 if (build.error || build.status !== 0) process.exit(build.status || 1);
-const tests = run('playwright', ['test', ...process.argv.slice(2)]);
+const testArguments = process.argv.slice(2);
+if (testArguments[0] === '--') testArguments.shift();
+const tests = run('playwright', ['test', ...testArguments]);
 const reportPath = resolve(output, 'results.json');
 let cases = [];
 try {
@@ -40,6 +42,8 @@ const manifest = {
   browser: 'Playwright Chromium desktop + Pixel 5 emulation',
   scope: 'first-party static navigation, home skip target, SEO/404/host redirect, Luma iframe attribute, skills UI with browser-intercepted API fixture',
   exclusions: ['real Luma calendar content', 'Supabase persistence/RLS parity', 'community registration/feed/posts/upvotes', 'contact/RSVP/skill submission writes', 'cross-browser coverage', 'site-wide coverage threshold'],
+  selection: { arguments: testArguments, fullSuite: testArguments.length === 0 },
+  caseCount: cases.length,
   result: tests.status === 0 && cases.length > 0 && cases.every((item) => item.status === 'expected') ? 'passed' : 'failed',
   cases,
   report: 'artifacts/e2e/results.json',
