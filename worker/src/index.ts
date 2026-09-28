@@ -1,8 +1,11 @@
 // Narrow structural D1 contract avoids loading Worker globals into the Next tsconfig.
 interface FeedDatabase {
-  prepare(query: string): { bind(...values: unknown[]): { all<T>(): Promise<{ results: T[] }> } };
+  prepare(query: string): { bind(...values: unknown[]): {
+    all<T>(): Promise<{ results: T[] }>;
+    first<T>(): Promise<T | null>;
+  } };
 }
-interface Env {
+export interface Env {
   DB: FeedDatabase;
   INTERNAL_API_TOKEN: string;
 }
@@ -16,11 +19,11 @@ interface FeedRow {
 }
 
 const headers = { 'Cache-Control': 'private, no-store', 'Content-Type': 'application/json; charset=utf-8', 'X-Content-Type-Options': 'nosniff' };
-function json(body: unknown, status: number): Response {
+export function json(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), { status, headers });
 }
 
-async function authorized(request: Request, token: string | undefined): Promise<boolean> {
+export async function authorized(request: Request, token: string | undefined): Promise<boolean> {
   const candidate = request.headers.get('Authorization');
   if (!token || !candidate?.startsWith('Bearer ') || candidate.length > 512) return false;
   const encoder = new TextEncoder();
