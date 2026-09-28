@@ -84,6 +84,21 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
 
+  cf-credential-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run test:cf-credentials
+
   coverage-baseline:
     runs-on: ubuntu-latest
     steps:
