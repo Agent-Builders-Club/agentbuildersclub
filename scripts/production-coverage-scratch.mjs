@@ -17,17 +17,15 @@ const output = path.join(root, "artifacts/coverage");
 const manifest = path.join(output, "next16-canary.json");
 const git = (...args) =>
   execFileSync("git", ["-C", root, ...args], { encoding: "utf8" }).trim();
-const commit = git("rev-parse", "HEAD");
+// Invalidate a previous PASS before even looking up HEAD or making output folders.
+rmSync(output, { recursive: true, force: true });
 const scope =
   "CI-only scratch Babel/Istanbul Node+Chromium canaries; no production-wide coverage";
-// Always invalidate a previous PASS even if archive, transform or launch fails.
-rmSync(output, { recursive: true, force: true });
-mkdirSync(output, { recursive: true });
 let scratch;
 let verdict = {
   schemaVersion: 1,
   result: "BLOCKED",
-  commit,
+  commit: null,
   scope,
   blocker: "Probe did not finish",
 };
@@ -55,6 +53,8 @@ function replaceExactly(source, before, after) {
   return source.replace(before, after);
 }
 try {
+  mkdirSync(output, { recursive: true });
+  const commit = (verdict.commit = git("rev-parse", "HEAD"));
   assert.equal(process.versions.node.split(".")[0], "22", "Node 22 required");
   assert.equal(
     execFileSync("pnpm", ["--version"], { encoding: "utf8" })
@@ -192,6 +192,7 @@ try {
   process.exitCode = 1;
 } finally {
   if (scratch) rmSync(scratch, { recursive: true, force: true });
+  mkdirSync(output, { recursive: true });
   writeFileSync(manifest, JSON.stringify(verdict, null, 2) + "\n");
   console.log(
     `${verdict.result}: ${verdict.blocker || "Node and Chromium original-location canaries verified"}; artifact: ${path.relative(root, manifest)}`,
