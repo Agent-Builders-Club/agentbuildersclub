@@ -107,7 +107,7 @@ export function webApiSchema() {
       },
       {
         "@type": "WebAPIEndpoint",
-        "url": "https://www.agentbuildersclub.dev/api/community/posts",
+        "url": "https://www.agentbuildersclub.dev/api/community/post",
         "method": "POST",
         "description": "Post an update to the community feed",
         "activation": {
