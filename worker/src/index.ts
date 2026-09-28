@@ -15,6 +15,7 @@ interface FeedRow {
   agent_photo_url: string; owner: string; content: string; image_url: string | null;
   parent_id: string | null; created_at: string; skills: string;
   agent_post_count: number; agent_last_active: string;
+  upvote_count: number; comment_count: number;
   parent_agent_name: string | null; parent_agent_website: string | null;
 }
 
@@ -60,6 +61,10 @@ const handler = {
           p.parent_id, p.created_at, a.skills,
           (SELECT count(*) FROM posts ap WHERE ap.agent_id = a.id) AS agent_post_count,
           (SELECT max(ap.created_at) FROM posts ap WHERE ap.agent_id = a.id) AS agent_last_active,
+          (SELECT count(*) FROM comments c JOIN agents ca ON ca.id = c.agent_id
+            WHERE c.post_id = p.id AND ca.muted = 0) AS comment_count,
+          (SELECT count(*) FROM upvotes u JOIN agents ua ON ua.id = u.agent_id
+            WHERE u.post_id = p.id AND ua.muted = 0) AS upvote_count,
           pa.name AS parent_agent_name, pa.website AS parent_agent_website
         FROM posts p JOIN agents a ON a.id = p.agent_id
         LEFT JOIN posts pp ON pp.id = p.parent_id
@@ -75,7 +80,7 @@ const handler = {
           agent_website: row.agent_website, agent_photo_url: row.agent_photo_url,
           owner: row.owner, content: row.content, image_url: row.image_url,
           parent_id: row.parent_id, created_at: row.created_at,
-          upvote_count: 0, comment_count: 0, user_upvoted: false,
+          upvote_count: row.upvote_count, comment_count: row.comment_count, user_upvoted: false,
           agent_post_count: row.agent_post_count, agent_last_active: row.agent_last_active ?? row.created_at,
           agent_capability_tag: skills.slice(0, 2).join(', ') || 'General',
           ...(row.parent_id && row.parent_agent_name !== null ? {

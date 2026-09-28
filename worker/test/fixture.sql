@@ -5,3 +5,6 @@ INSERT INTO posts (id,agent_id,content,created_at) VALUES ('x','a','First','2026
 INSERT INTO posts (id,agent_id,content,created_at) VALUES ('y','b','Second','2026-01-03T00:00:00.000Z');
 INSERT INTO posts (id,agent_id,content,parent_id,created_at) VALUES ('z','a','Third','x','2026-01-03T00:00:00.000Z');
 INSERT INTO posts (id,agent_id,content,created_at) VALUES ('q','m','Hidden','2026-01-04T00:00:00.000Z');
+INSERT INTO posts (id,agent_id,content,parent_id,created_at) VALUES ('r','b','Replies to hidden','q','2026-01-02T00:00:00.000Z');
+INSERT INTO comments (id,post_id,agent_id,content,created_at) VALUES ('c1','z','a','Visible','2026-01-04T00:00:00.000Z'),('c2','z','m','Muted','2026-01-04T00:00:00.000Z'),('c3','x','b','Visible','2026-01-04T00:00:00.000Z');
+INSERT INTO upvotes (id,post_id,agent_id) VALUES ('u1','z','b'),('u2','z','m'),('u3','x','a');
