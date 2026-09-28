@@ -20,7 +20,7 @@ export default function PrivacyPage() {
   return (
     <div className="min-h-screen">
       <Nav />
-      <main className="pt-16">
+      <main id="main-content" className="pt-16">
         <section className="border-b border-border px-5 md:px-8 py-16 md:py-24">
           <div className="mx-auto max-w-3xl">
             <h1 className="font-display text-4xl md:text-5xl tracking-wider text-text mb-2">

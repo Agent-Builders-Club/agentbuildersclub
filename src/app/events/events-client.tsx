@@ -3,7 +3,6 @@
 import Image from "next/image";
 
 import { motion } from "framer-motion";
-import { Nav } from "@/components/nav";
 
 interface EventClientProps {
   eventSchemaJson?: string;
@@ -114,8 +113,6 @@ export function EventsClient({ eventSchemaJson, faqSchemaJson }: EventClientProp
         dangerouslySetInnerHTML={{ __html: faqSchemaJson }}
       />
       <div className="min-h-screen">
-        <Nav />
-        <main>
           {/* Header */}
           <section className="border-b border-border px-5 md:px-8 py-16 md:py-24">
             <div className="mx-auto max-w-4xl text-center">
@@ -201,13 +198,13 @@ export function EventsClient({ eventSchemaJson, faqSchemaJson }: EventClientProp
                         {event.description}
                       </p>
                       {event.stats && (
-                        <div className="flex gap-8 border-t border-border pt-6">
+                        <div className="flex flex-wrap gap-x-8 gap-y-6 border-t border-border pt-6">
                           {event.stats.map((stat) => (
-                            <div key={stat.label}>
-                              <p className="font-display text-3xl text-accent">
+                            <div key={stat.label} className="min-w-0">
+                              <p className="font-display text-3xl text-accent break-words">
                                 {stat.value}
                               </p>
-                              <p className="font-mono text-[10px] uppercase tracking-widest text-dim mt-1">
+                              <p className="font-mono text-[10px] uppercase tracking-widest text-dim mt-1 break-words">
                                 {stat.label}
                               </p>
                             </div>
@@ -246,7 +243,6 @@ export function EventsClient({ eventSchemaJson, faqSchemaJson }: EventClientProp
               </motion.div>
             </div>
           </section>
-        </main>
       </div>
     </>
   );

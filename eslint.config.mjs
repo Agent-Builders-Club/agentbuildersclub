@@ -1,6 +1,15 @@
+import { createRequire } from "node:module";
+import { dirname } from "node:path";
 import { FlatCompat } from "@eslint/eslintrc";
 
-const compat = new FlatCompat({ baseDirectory: import.meta.dirname });
+const require = createRequire(import.meta.url);
+const compat = new FlatCompat({
+  baseDirectory: import.meta.dirname,
+  // Resolve Next's plugins from its matching config version under pnpm.
+  resolvePluginsRelativeTo: dirname(
+    require.resolve("eslint-config-next/package.json"),
+  ),
+});
 
 const eslintConfig = [
   ...compat.config({ extends: ["next/core-web-vitals", "next/typescript"] }),

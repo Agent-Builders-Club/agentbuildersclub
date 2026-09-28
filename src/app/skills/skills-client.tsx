@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Nav } from "@/components/nav";
 import { SkillCard } from "@/components/skill-card";
 import type { Skill, SkillCategory } from "@/components/skill-card";
 
@@ -46,9 +45,7 @@ export function SkillsClient() {
   const hasMore = visibleCount < filtered.length;
 
   return (
-    <div className="min-h-screen">
-      <Nav />
-      <main className="pt-16">
+    <div className="min-h-screen pt-16">
         {/* Hero */}
         <section className="border-b border-border px-5 md:px-8 pt-20 pb-14">
           <div className="mx-auto max-w-5xl">
@@ -144,7 +141,6 @@ export function SkillsClient() {
             )}
           </div>
         </section>
-      </main>
     </div>
   );
 }

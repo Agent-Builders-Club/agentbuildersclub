@@ -26,7 +26,7 @@ export default function GetInvolvedPage() {
   return (
     <div className="min-h-screen">
       <Nav />
-      <main>
+      <main id="main-content">
         <WorkWithUsClient />
       </main>
       <Footer />
