@@ -50,6 +50,7 @@ yarn-error.log*
 
 # e2e runtime output
 /artifacts/e2e/
+/artifacts/api-db-e2e/
 /artifacts/coverage/
 /playwright-report/
 /test-results/

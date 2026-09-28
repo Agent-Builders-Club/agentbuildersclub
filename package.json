@@ -13,7 +13,8 @@
     "test": "vitest run --passWithNoTests",
     "test:coverage": "node scripts/coverage-baseline.mjs",
     "test:watch": "vitest",
-    "test:e2e": "node scripts/run-e2e.mjs"
+    "test:e2e": "node scripts/run-e2e.mjs",
+    "test:api-db-e2e": "node scripts/api-db-e2e.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",
