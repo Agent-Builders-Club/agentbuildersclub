@@ -80,7 +80,7 @@ def main():
     varsfile = ROOT / '.dev.vars'
     if varsfile.exists():
         raise RuntimeError('Existing .dev.vars must not be overwritten')
-    varsfile.write_text('INTERNAL_API_TOKEN=' + TOKEN + '\nLOCAL_WRITE_CONTRACT=enabled\n')
+    varsfile.write_text('INTERNAL_API_TOKEN=' + TOKEN + '\n')
     server = None
     try:
         server = subprocess.Popen([str(WRANGLER),'dev','--local','--ip','127.0.0.1','--port',str(PORT),'--persist-to',str(PERSIST)], cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env={**os.environ, 'WRANGLER_SEND_METRICS':'false'})
@@ -98,6 +98,43 @@ def main():
             time.sleep(.25)
         else:
             raise RuntimeError('wrangler dev did not start with the expected fixture')
+        status, _, body = rotate()
+        check(status == 404 and body == {'error':'Not found'}, 'default bundle rejects write with gate disabled', checks)
+        server.terminate()
+        try: server.wait(timeout=5)
+        except subprocess.TimeoutExpired: server.kill(); server.wait()
+        varsfile.write_text('INTERNAL_API_TOKEN=' + TOKEN + '\nLOCAL_WRITE_CONTRACT=enabled\n')
+        server = subprocess.Popen([str(WRANGLER),'dev','--local','--ip','127.0.0.1','--port',str(PORT),'--persist-to',str(PERSIST)], cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env={**os.environ, 'WRANGLER_SEND_METRICS':'false'})
+        for _ in range(60):
+            if server.poll() is not None:
+                raise RuntimeError('default wrangler dev exited before enabled-gate readiness')
+            try:
+                status, _, body = request(token=TOKEN)
+                if status == 200 and isinstance(body, list) and [row.get('id') for row in body] == ['z', 'y', 'x']:
+                    break
+            except (urllib.error.URLError, TimeoutError):
+                pass
+            time.sleep(.25)
+        else:
+            raise RuntimeError('default wrangler dev did not start with enabled gate')
+        status, _, body = rotate()
+        check(status == 404 and body == {'error':'Not found'}, 'default bundle rejects write even with gate enabled', checks)
+        server.terminate()
+        try: server.wait(timeout=5)
+        except subprocess.TimeoutExpired: server.kill(); server.wait()
+        server = subprocess.Popen([str(WRANGLER),'dev','--config','wrangler.local.jsonc','--local','--ip','127.0.0.1','--port',str(PORT),'--persist-to',str(PERSIST)], cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env={**os.environ, 'WRANGLER_SEND_METRICS':'false'})
+        for _ in range(60):
+            if server.poll() is not None:
+                raise RuntimeError('local write-contract wrangler dev exited before readiness')
+            try:
+                status, _, body = request(token=TOKEN)
+                if status == 200 and isinstance(body, list) and [row.get('id') for row in body] == ['z', 'y', 'x']:
+                    break
+            except (urllib.error.URLError, TimeoutError):
+                pass
+            time.sleep(.25)
+        else:
+            raise RuntimeError('local write-contract wrangler dev did not start')
         for path in ['/v1/feed', '/v1/feed?offset=99999', '/unknown']:
             status, headers, body = request(path)
             check(status == 401 and body == {'error':'Unauthorized'}, 'uniform unauth ' + path, checks)
