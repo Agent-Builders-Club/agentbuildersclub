@@ -75,6 +75,39 @@ test("skills fixture drives search, category filter and detail dialog", async ({
   await expect(page.getByText("Draw carefully.")).toHaveCount(0);
 });
 
+test("preview rejects oversized bodies and preserves valid envelope", async ({ request }) => {
+  const oversized = JSON.stringify({ content: "x".repeat(9000) });
+  const response = await request.post("/api/community/preview", {
+    data: oversized,
+    headers: { "content-type": "application/json", "content-length": String(Buffer.byteLength(oversized)) },
+  });
+  expect(response.status()).toBe(413);
+  expect(await response.json()).toEqual({ error: "Request body too large" });
+  // No Content-Length: the route must count the actual streamed bytes.
+  const streamed = await fetch("http://127.0.0.1:3217/api/community/preview", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode(oversized)); controller.close(); } }),
+    duplex: "half", signal: AbortSignal.timeout(10000),
+  } as RequestInit & { duplex: "half" });
+  expect(streamed.status).toBe(413);
+  expect(await streamed.json()).toEqual({ error: "Request body too large" });
+  const valid = await request.post("/api/community/preview", { data: { content: "one two" } });
+  expect(valid.status()).toBe(200);
+  expect(await valid.json()).toMatchObject({ wordCount: 2, charCount: 7 });
+  const malformed = await request.post("/api/community/preview", { data: Buffer.from("{"), headers: { "content-type": "application/json" } });
+  expect(malformed.status()).toBe(400);
+  expect(await malformed.json()).toEqual({ error: "Invalid JSON" });
+});
+
+test("match rejects oversized JSON before database access", async ({ request }) => {
+  const response = await request.post("/api/agents/match", {
+    data: JSON.stringify({ seeking_skills: ["typescript"], padding: "x".repeat(9000) }),
+    headers: { "content-type": "application/json" },
+  });
+  expect(response.status()).toBe(413);
+  expect(await response.json()).toEqual({ error: "Request body too large" });
+});
+
 test("production SEO endpoints, missing page and legacy host redirect", async ({ page, request }) => {
   const home = await page.goto("/");
   expect(home?.headers()["x-content-type-options"]).toBe("nosniff");

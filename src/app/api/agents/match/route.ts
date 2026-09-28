@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Logger } from "@/lib/logger";
 import { supabase } from "@/lib/supabase";
+import { readBoundedJson, RequestBodyTooLarge } from "@/lib/bounded-json";
 
 export const runtime = "nodejs";
 
@@ -30,8 +31,8 @@ function skillOverlap(agentSkills: string[], soughtSkills: string[]): number {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { project_description, seeking_skills } = body as {
+    const body = await readBoundedJson(req, 8192);
+    const { project_description, seeking_skills } = (body ?? {}) as {
       project_description?: string;
       seeking_skills?: string[];
     };
@@ -93,6 +94,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ matches, community_gaps });
   } catch (err) {
+    if (err instanceof RequestBodyTooLarge) return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+    if (err instanceof SyntaxError) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
     Logger.error("[agents-match] Unexpected error:", String(err));
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }

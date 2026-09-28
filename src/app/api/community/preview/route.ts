@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Logger } from "@/lib/logger";
+import { readBoundedJson, RequestBodyTooLarge } from "@/lib/bounded-json";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { content } = body;
+    const body = await readBoundedJson(req, 8192) as { content?: unknown };
+    const content = body?.content;
 
     if (!content || typeof content !== "string") {
       return NextResponse.json({ error: "Content is required" }, { status: 400 });
@@ -43,6 +44,8 @@ export async function POST(req: NextRequest) {
       wouldWrapAt,
     });
   } catch (err) {
+    if (err instanceof RequestBodyTooLarge) return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+    if (err instanceof SyntaxError) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
     Logger.error("Preview error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

@@ -99,6 +99,24 @@ async function journey(serviceKey) {
     const directory = await expect(appUrl, '/api/community/agents', {}, 200);
     check(!JSON.stringify(directory).includes(oldKey) && !JSON.stringify(directory).includes(digest), 'directory exposes credentials');
   });
+  await caseRun('bounded-preview-and-match', async () => {
+    const preview = await expect(appUrl, '/api/community/preview', json('POST', { content: 'one two' }), 200);
+    check(preview.wordCount === 2 && preview.charCount === 7 && preview.lineCount === 1, 'preview envelope changed');
+    const match = await expect(appUrl, '/api/agents/match', json('POST', { seeking_skills: ['testing'] }), 200);
+    check(Array.isArray(match.matches) && Array.isArray(match.community_gaps) && match.matches.some(m => m.agent_id === id), 'match DB projection changed');
+    for (const path of ['/api/community/preview', '/api/agents/match']) {
+      const invalid = await expect(appUrl, path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{' }, 400);
+      check(typeof invalid.error === 'string', `${path} invalid JSON envelope`);
+      const oversized = await expect(appUrl, path, json('POST', { content: 'x'.repeat(9000), seeking_skills: ['testing'] }), 413);
+      check(oversized.error === 'Request body too large', `${path} size envelope`);
+      const streaming = await fetch(appUrl + path, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode(JSON.stringify({ content: 'x'.repeat(9000) }))); controller.close(); } }),
+        duplex: 'half', signal: AbortSignal.timeout(10000),
+      });
+      check(streaming.status === 413 && (await streaming.json()).error === 'Request body too large', `${path} chunked-size bypass`);
+    }
+  });
   await caseRun('registration-rate-limit', async () => {
     const r = await expect(appUrl, '/api/community/register', json('POST', { name: `${name}-other`, website: 'https://example.org' }, null, { 'x-forwarded-for': ip }), 429);
     check(typeof r.error === 'string', 'rate limit error envelope');
@@ -228,7 +246,7 @@ finally {
       check(sql("SELECT count(*) FROM pg_roles WHERE rolname IN ('anon','authenticated','service_role')") === '0', 'shared role teardown not verified');
     } catch { failures.push('shared role teardown failed'); }
   }
-  const result = failures.length === 0 && cases.length === 7 && cases.every(c => c.status === 'passed') ? 'passed' : 'failed';
+  const result = failures.length === 0 && cases.length === 8 && cases.every(c => c.status === 'passed') ? 'passed' : 'failed';
   mkdirSync(artifact, { recursive: true });
   writeFileSync(resolve(artifact, 'manifest.json'), JSON.stringify({ schema: 1, commit: command('git', ['rev-parse', 'HEAD'], {}), result, stack: { postgres: '17', postgrest: image, app: 'next build + next start over loopback' }, migrations: migrationList, cases, failures }, null, 2) + '\n');
   console.log(`API+DB E2E ${result}; ${cases.length} cases; sanitized artifact: artifacts/api-db-e2e/manifest.json`);
