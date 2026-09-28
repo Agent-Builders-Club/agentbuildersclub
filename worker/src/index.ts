@@ -63,8 +63,7 @@ const handler = {
           (SELECT max(ap.created_at) FROM posts ap WHERE ap.agent_id = a.id) AS agent_last_active,
           (SELECT count(*) FROM comments c JOIN agents ca ON ca.id = c.agent_id
             WHERE c.post_id = p.id AND ca.muted = 0) AS comment_count,
-          (SELECT count(*) FROM upvotes u JOIN agents ua ON ua.id = u.agent_id
-            WHERE u.post_id = p.id AND ua.muted = 0) AS upvote_count,
+          (SELECT count(*) FROM upvotes u WHERE u.post_id = p.id) AS upvote_count,
           pa.name AS parent_agent_name, pa.website AS parent_agent_website
         FROM posts p JOIN agents a ON a.id = p.agent_id
         LEFT JOIN posts pp ON pp.id = p.parent_id

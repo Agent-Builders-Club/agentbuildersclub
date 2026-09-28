@@ -79,6 +79,8 @@ def main():
         check('0003_feed_counts.sql' in upgraded and '0001_feed.sql' not in upgraded, 'additive legacy upgrade', legacy_checks)
         check(rows('SELECT id FROM posts',legacy_args)==[{'id':'old'}], 'legacy posts preserved', legacy_checks)
         check(rows('SELECT count(*) AS n FROM comments',legacy_args)==[{'n':0}], 'legacy count tables created', legacy_checks)
+        run('d1','execute','DB',*legacy_args,'--command',"INSERT INTO upvotes (id,post_id,agent_id,created_at) VALUES ('old-v1','old','legacy','2026-01-01T01:00:00.000Z'),('old-v2','old','legacy','2026-01-01T02:00:00.000Z')")
+        check(rows('SELECT id,created_at FROM upvotes ORDER BY id',legacy_args)==[{'id':'old-v1','created_at':'2026-01-01T01:00:00.000Z'},{'id':'old-v2','created_at':'2026-01-01T02:00:00.000Z'}], 'legacy upgrade accepts duplicate vote timestamps', legacy_checks)
         check('No migrations to apply' in run('d1','migrations','list','DB',*legacy_args), 'legacy no pending migrations', legacy_checks)
     finally:
         legacy_config.unlink(missing_ok=True)
@@ -102,7 +104,7 @@ def main():
         "INSERT INTO agents (id,name,owner,website,photo_url,skills,muted,created_at) VALUES ('bad','x','x','','','[]',2,'2026-01-01T00:00:00.000Z')",
         "INSERT INTO comments (id,post_id,agent_id,content,created_at) VALUES ('bad','missing','a','x','2026-01-01T00:00:00.000Z')",
         "INSERT INTO upvotes (id,post_id,agent_id) VALUES ('bad','missing','a')",
-        "INSERT INTO upvotes (id,post_id,agent_id) VALUES ('bad','z','b')",
+        "INSERT INTO upvotes (id,post_id,agent_id,created_at) VALUES ('bad','z','b','invalid')",
     ]:
         p = subprocess.run([str(WRANGLER),'d1','execute','DB',*args,'--command',query], cwd=ROOT, capture_output=True, text=True)
         check(p.returncode != 0, 'constraint rejects invalid row ' + str(len(checks)), checks)
@@ -179,7 +181,11 @@ def main():
         check(body[0]['agent_post_count'] == 2 and body[0]['agent_capability_tag'] == 'Search, Tools', 'projected stats and skills', checks)
         check(body[0]['parent_agent_name'] == 'Alpha' and body[0]['parent_agent_website'] == 'https://alpha.test', 'parent author', checks)
         check(body[1]['agent_last_active'] == '2026-01-03T00:00:00.000Z', 'last active', checks)
-        check([(r['id'],r['upvote_count'],r['comment_count'],r['user_upvoted']) for r in body] == [('z',1,1,False),('y',0,0,False),('r',0,0,False),('x',1,1,False)], 'exact visible actor counts', checks)
+        check([(r['id'],r['upvote_count'],r['comment_count'],r['user_upvoted']) for r in body] == [('z',2,1,False),('y',0,0,False),('r',0,0,False),('x',1,1,False)], 'muted voter counted but muted commenter excluded', checks)
+        run('d1','execute','DB',*args,'--command',"INSERT INTO upvotes (id,post_id,agent_id,created_at) VALUES ('u4','z','b','2026-01-05T01:02:03.000Z'),('u5','z','b','2026-01-05T01:02:04.000Z')")
+        check(rows("SELECT id,created_at FROM upvotes WHERE id IN ('u4','u5') ORDER BY id",args) == [{'id':'u4','created_at':'2026-01-05T01:02:03.000Z'},{'id':'u5','created_at':'2026-01-05T01:02:04.000Z'}], 'duplicate vote timestamps persisted in D1', checks)
+        status, _, duplicate_feed = request('/v1/feed', TOKEN)
+        check(status == 200 and duplicate_feed[0]['id'] == 'z' and duplicate_feed[0]['upvote_count'] == 4 and duplicate_feed[0]['comment_count'] == 1, 'duplicate votes counted over HTTP', checks)
         check('parent_agent_name' not in body[2] and body[2]['parent_id'] == 'q', 'muted parent identity hidden but id preserved', checks)
         base_fields = {'id','agent_id','agent_name','agent_website','agent_photo_url','owner','content','image_url','parent_id','created_at','upvote_count','comment_count','user_upvoted','agent_post_count','agent_last_active','agent_capability_tag'}
         check(all(set(r) == base_fields | ({'parent_agent_name','parent_agent_website'} if r['id']=='z' else set()) for r in body), 'exact anonymous projection', checks)
@@ -251,7 +257,7 @@ def main():
         run('d1','execute','DB',*args,'--command','DROP TABLE posts')
         status, _, body = request('/v1/feed', TOKEN)
         check(status == 503 and body == {'error':'Unable to load feed'}, 'generic DB failure', checks)
-        ARTIFACT.write_text(json.dumps({'checks':legacy_checks+checks,'migration_applied':['0001_feed.sql','0002_local_key_cas.sql','0003_feed_counts.sql'],'pending':pending.strip(),'authorized_fixture':{'ids':['z','y','r','x'],'offset_1':['y','r','x'],'visible_counts':{'z':[1,1],'x':[1,1]},'pagination':{'page_size':50,'second_page_size':5}},'write_contract':{'parallel_winners':1,'parallel_conflicts':7,'audit_rollback':True,'final_version':2},'runtime':'wrangler dev --local + d1 execute --local','secrets':'redacted'}, indent=2)+'\n')
+        ARTIFACT.write_text(json.dumps({'checks':legacy_checks+checks,'migration_applied':['0001_feed.sql','0002_local_key_cas.sql','0003_feed_counts.sql'],'pending':pending.strip(),'authorized_fixture':{'ids':['z','y','r','x'],'offset_1':['y','r','x'],'counts_before_duplicates':{'z':[2,1],'x':[1,1]},'counts_after_duplicates':{'z':[4,1]},'pagination':{'page_size':50,'second_page_size':5}},'write_contract':{'parallel_winners':1,'parallel_conflicts':7,'audit_rollback':True,'final_version':2},'runtime':'wrangler dev --local + d1 execute --local','secrets':'redacted'}, indent=2)+'\n')
         print(f'PASS {len(legacy_checks+checks)} checks; artifact {ARTIFACT}')
     finally:
         if server is not None:

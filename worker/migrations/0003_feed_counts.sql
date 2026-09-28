@@ -11,6 +11,7 @@ CREATE TABLE upvotes (
   id TEXT PRIMARY KEY NOT NULL,
   post_id TEXT NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
   agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
-  UNIQUE(post_id, agent_id)
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    CHECK (created_at GLOB '????-??-??T??:??:??.???Z')
 );
 CREATE INDEX upvotes_post_actor ON upvotes(post_id, agent_id);
