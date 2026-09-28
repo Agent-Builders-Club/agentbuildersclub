@@ -19,3 +19,29 @@ build is incompatible. Use a forward fix rather than restoring permissive databa
 Existing agent credentials remain valid through the upgrade; agents should rotate potentially
 exposed keys with `POST /api/community/key`. Do not log or publish returned keys.
 Contact submissions are stored in the private `contact_messages` table; no email delivery is claimed.
+# Next 16 production source coverage canary (informational)
+
+Run `pnpm install --frozen-lockfile`, `pnpm exec playwright install chromium`, then
+`pnpm run test:coverage:next16`. This deletes any previous `artifacts/coverage/`
+before the run and writes the sanitized verdict to
+`artifacts/coverage/next16-canary.json` even when the build fails. The CI job
+uploads **only** that JSON; `build.log`, `e2e.log`, and potential raw Node/browser
+counters under `next16-private/` stay local. Never upload the whole directory.
+
+The runner temporarily creates `.babelrc` (`next/babel` and
+`babel-plugin-istanbul`) and private canary route/client source, runs
+`next build --webpack`, then removes those files. It does not modify the
+normal `pnpm run build` Turbopack path. The E2E contract requests a real
+production Node route, clicks a Chromium button, checks both taken **and**
+untaken original TS/TSX lines, and captures server counters via a private
+process signal, not a public endpoint.
+
+**Current blocker:** Next 16.3.6 rejects this custom-Babel build because
+`src/app/layout.tsx` imports `next/font`, which requires SWC. This is a
+compile-time incompatibility, not zero-percent production coverage: Node and
+Chromium cannot run the instrumented build. No production percentage, Vitest
+location union, or 75% threshold is claimed. The existing Vitest baseline is
+separate and credits only its Node test process. Build/prerender and Edge
+proxy remain uncredited. Do not remove `next/font` from production merely to
+make the canary green; a future supported instrumentation path must re-prove
+source-line identity and full tracked-file accounting.
