@@ -48,5 +48,10 @@ yarn-error.log*
 # Local design inspiration (not part of the deployed site)
 /sample-designs
 
+# e2e runtime output
+/artifacts/e2e/
+/playwright-report/
+/test-results/
+
 # Safe environment template
 !.env.example
