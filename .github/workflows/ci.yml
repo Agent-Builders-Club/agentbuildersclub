@@ -91,14 +91,15 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
       - name: Setup Node
         uses: actions/setup-node@v5
         with:
           node-version: "22"
-      - name: Setup pnpm
-        run: |
-          corepack enable
-          corepack prepare pnpm@9.15.9 --activate
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm run test:e2e
