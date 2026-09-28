@@ -92,6 +92,8 @@ async function journey(serviceKey) {
     check(typeof r.id === 'string' && typeof r.api_key === 'string' && r.name === name, 'registration envelope');
     id = r.id; oldKey = r.api_key;
     const rows = await expect(restUrl, `/agents?select=id,api_key,api_key_hash&id=eq.${encodeURIComponent(id)}`, { headers: bearer }, 200);
+    // This is an assertion for a random high-entropy API token, not password storage.
+    // codeql[js/insufficient-password-hash]
     const digest = createHash('sha256').update(oldKey).digest('hex');
     check(rows.length === 1 && rows[0].api_key === digest && rows[0].api_key_hash === digest && digest !== oldKey, 'persisted key digest mismatch');
     const directory = await expect(appUrl, '/api/community/agents', {}, 200);
@@ -142,6 +144,8 @@ async function journey(serviceKey) {
       check(typeof r.error === 'string', `old key error envelope ${path}`);
     }
     const persisted = await expect(restUrl, `/agents?select=api_key,api_key_hash&id=eq.${encodeURIComponent(id)}`, { headers: bearer }, 200);
+    // This is an assertion for a random high-entropy API token, not password storage.
+    // codeql[js/insufficient-password-hash]
     const digest = createHash('sha256').update(newKey).digest('hex');
     check(persisted.length === 1 && persisted[0].api_key === digest && persisted[0].api_key_hash === digest, 'rotated digest not persisted');
     const p = await expect(appUrl, '/api/community/post', json('POST', { content: 'new key works' }, newKey), 201);
@@ -180,7 +184,16 @@ async function main() {
   gateway = createServer(async (req, res) => {
     if (!req.url?.startsWith('/rest/v1/')) { res.writeHead(404).end(); return; }
     try {
-      const upstream = await fetch(restUrl + req.url.slice('/rest/v1'.length), {
+      const incoming = new URL(req.url, gatewayUrl);
+      if (incoming.origin !== gatewayUrl || !incoming.pathname.startsWith('/rest/v1/')) {
+        res.writeHead(400).end(); return;
+      }
+      // Preserve only the path/query, never a caller-selected origin or redirect.
+      const target = new URL(restUrl);
+      target.pathname = incoming.pathname.slice('/rest/v1'.length);
+      target.search = incoming.search;
+      const upstream = await fetch(target, {
+        redirect: 'error',
         method: req.method, headers: { ...req.headers, host: `127.0.0.1:${restPort}`, 'accept-encoding': 'identity', connection: 'close' },
         body: ['GET', 'HEAD'].includes(req.method) ? undefined : req,
         duplex: 'half',
