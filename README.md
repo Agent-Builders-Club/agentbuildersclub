@@ -175,7 +175,7 @@ pnpm run build
 Useful focused commands:
 
 ```bash
-pnpm exec vitest run src/app/api/community/posts.test.ts
+pnpm exec vitest run src/app/api/community/feed.test.ts
 pnpm run test
 pnpm run test:watch
 ```
