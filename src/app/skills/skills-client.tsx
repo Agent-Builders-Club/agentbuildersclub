@@ -45,7 +45,7 @@ export function SkillsClient() {
   const hasMore = visibleCount < filtered.length;
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen pt-16">
         {/* Hero */}
         <section className="border-b border-border px-5 md:px-8 pt-20 pb-14">
           <div className="mx-auto max-w-5xl">
