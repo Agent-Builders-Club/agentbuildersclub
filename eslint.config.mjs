@@ -1,10 +1,9 @@
-import { defineConfig, globalIgnores } from "eslint/config";
-import nextVitals from "eslint-config-next/core-web-vitals";
-import nextTs from "eslint-config-next/typescript";
+import { FlatCompat } from "@eslint/eslintrc";
 
-const eslintConfig = defineConfig([
-  ...nextVitals,
-  ...nextTs,
+const compat = new FlatCompat({ baseDirectory: import.meta.dirname });
+
+const eslintConfig = [
+  ...compat.config({ extends: ["next/core-web-vitals", "next/typescript"] }),
   // Override: allow explicit any (existing codebase uses it liberally)
   { rules: { "@typescript-eslint/no-explicit-any": "warn" } },
   // Override: tests and test utilities use `any` freely for mocks/stubs,
@@ -16,15 +15,10 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-unused-vars": "off",
     },
   },
-  // Override default ignores of eslint-config-next.
-  globalIgnores([
-    // Default ignores of eslint-config-next:
-    ".next/**",
-    "out/**",
-    "build/**",
-    "coverage/**",
-    "next-env.d.ts",
-  ]),
-]);
+  // Preserve the default Next.js ignores.
+  {
+    ignores: [".next/**", "out/**", "build/**", "coverage/**", "next-env.d.ts"],
+  },
+];
 
 export default eslintConfig;
