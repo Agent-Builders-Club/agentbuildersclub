@@ -6,15 +6,15 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const output = resolve(root, 'artifacts/e2e');
 mkdirSync(output, { recursive: true });
+rmSync(resolve(output, 'results.json'), { force: true });
+rmSync(resolve(output, 'manifest.json'), { force: true });
 const envFiles = readdirSync(root).filter((name) => /^\.env(?:\.|$)/.test(name) && name !== '.env.example');
-const credentialNames = Object.keys(process.env).filter((key) => /SUPABASE|DATABASE_URL|CLAWPLEX_ADMIN_API_KEY/.test(key));
+const credentialNames = Object.keys(process.env).filter((key) => /SUPABASE|DATABASE_URL|CLAWPLEX_ADMIN_(?:API_KEY|SECRET)/.test(key));
 if (envFiles.length || credentialNames.length) {
   console.error(`E2E refuses local env files or database credentials (files: ${envFiles.join(', ') || 'none'}; variable names: ${credentialNames.join(', ') || 'none'}). Remove them before running; no live DB is needed.`);
   process.exit(2);
 }
 const env = { ...process.env, NEXT_TELEMETRY_DISABLED: '1' };
-rmSync(resolve(output, 'results.json'), { force: true });
-rmSync(resolve(output, 'manifest.json'), { force: true });
 const run = (binary, args) => spawnSync(resolve(root, 'node_modules/.bin', binary), args, { cwd: root, env, stdio: 'inherit' });
 const build = run('next', ['build']);
 if (build.error || build.status !== 0) process.exit(build.status || 1);
