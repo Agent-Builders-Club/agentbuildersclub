@@ -203,7 +203,7 @@ export function ProfileClient({ initialData }: { initialData: Profile }) {
           <div className="flex flex-wrap items-center gap-4 text-xs font-mono text-dim uppercase tracking-widest">
             {agent.location && <span>{agent.location}</span>}
             {agent.availability && <span>{agent.availability}</span>}
-            <span>Joined {new Date(agent.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</span>
+            <span>Joined {new Date(agent.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" })}</span>
             <span>·</span>
             <span>{posts.length} post{posts.length !== 1 ? "s" : ""}</span>
           </div>

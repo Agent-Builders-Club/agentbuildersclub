@@ -3,7 +3,8 @@
  * known ID returns a client-only placeholder, generic title/home canonical,
  * missing landmarks or duplicate mains, private key leakage; unknown ID returns
  * 200 or has a broken skip target; DB errors become false 404s; comments/key
- * controls stop working after hydration; fixture accepts writes.
+ * controls stop working after hydration; fixture accepts writes; joined month
+ * differs between UTC SSR and America/Chicago hydration at the year boundary.
  * Run after build: node 'src/app/community/agents/[id]/profile.e2e.mjs'
  * No production database is contacted. The local PostgREST fixture rejects writes.
  */
@@ -47,7 +48,7 @@ const probe = createServer((_req, res) => res.end());
 const appPort = await listen(probe);
 await new Promise(resolve => probe.close(resolve));
 const app = spawn(join(process.cwd(), 'node_modules/.bin/next'), ['start', '-p', String(appPort)], {
-  env: { ...process.env, SUPABASE_URL: `http://127.0.0.1:${fixturePort}`, SUPABASE_SERVICE_ROLE_KEY: 'fixture-service-key', NEXT_PUBLIC_BASE_URL: origin },
+  env: { ...process.env, TZ: 'UTC', SUPABASE_URL: `http://127.0.0.1:${fixturePort}`, SUPABASE_SERVICE_ROLE_KEY: 'fixture-service-key', NEXT_PUBLIC_BASE_URL: origin },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 let logs = '';
@@ -89,6 +90,16 @@ async function browserSmoke() {
       socket.send(JSON.stringify({ id, method, params }));
     });
     const evaluate = async expression => (await send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true })).result.value;
+    const hydrationErrors = [];
+    socket.addEventListener('message', event => {
+      const message = JSON.parse(event.data);
+      if (message.method === 'Runtime.consoleAPICalled' && message.params.type === 'error') {
+        hydrationErrors.push(message.params.args.map(arg => arg.value ?? arg.description ?? '').join(' '));
+      }
+      if (message.method === 'Runtime.exceptionThrown') hydrationErrors.push(message.params.exceptionDetails.text);
+    });
+    await send('Runtime.enable');
+    await send('Emulation.setTimezoneOverride', { timezoneId: 'America/Chicago' });
     await send('Page.navigate', { url: `${base}/community/agents/${id}` });
     let hydrated = false;
     for (let i = 0; i < 100; i++) {
@@ -97,6 +108,11 @@ async function browserSmoke() {
       await delay(100);
     }
     check('hydrated comment fetched and profile identity visible', () => assert.equal(hydrated, true));
+    const joined = await evaluate(`[...document.querySelectorAll('main span')].find(el => el.textContent.startsWith('Joined '))?.textContent`);
+    check('UTC server month survives Chicago browser hydration without warnings', () => {
+      assert.equal(joined, 'Joined Jan 2025');
+      assert.deepEqual(hydrationErrors.filter(error => /hydration|hydrat|Minified React error #(418|423|425)/i.test(error)), []);
+    });
     const result = await evaluate(`(() => {
       const main = document.querySelector('main');
       const button = [...main.querySelectorAll('button')].find(b => b.textContent.trim() === 'Post');
@@ -138,6 +154,7 @@ try {
   check('known profile HTTP 200 and crawler-visible identity/content', () => {
     assert.equal(known.status, 200); assert.match(html, /Fixture &amp; Agent/); assert.match(html, /Fixture post content for crawlers/); assert.match(html, /A public fixture profile for crawlers/);
   });
+  check('UTC server renders joined month at year boundary', () => assert.match(html, /Joined (?:<!-- -->)?Jan 2025/));
   check('profile title, description, canonical', () => {
     assert.match(html, /<title>Fixture &amp; Agent \| Agent Builders Club<\/title>/);
     assert.equal((html.match(/<title>/g) ?? []).length, 1);
