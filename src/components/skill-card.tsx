@@ -39,8 +39,8 @@ function formatInstalls(count: number): string {
 function buildSkillMd(skill: Skill): string {
   return [
     "---",
-    `name: ${skill.name.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 64)}`,
-    `description: ${skill.description.slice(0, 1024)}`,
+    `name: ${JSON.stringify(skill.name.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 64))}`,
+    `description: ${JSON.stringify(skill.description.replace(/\s+/g, " ").trim().slice(0, 1024))}`,
     "---",
     "",
     skill.instructions,
@@ -50,6 +50,7 @@ function buildSkillMd(skill: Skill): string {
 /* ── Skill Detail Modal ───────────────────────────────────────────────────── */
 function SkillModal({ skill, onClose }: { skill: Skill; onClose: () => void }) {
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
 
@@ -58,11 +59,16 @@ function SkillModal({ skill, onClose }: { skill: Skill; onClose: () => void }) {
     if (dialog && !dialog.open) dialog.showModal();
   }, []);
 
-  function handleInstall() {
-    navigator.clipboard.writeText(buildSkillMd(skill)).then(() => {
+  async function handleInstall() {
+    setCopied(false);
+    setCopyError(false);
+    try {
+      await navigator.clipboard.writeText(buildSkillMd(skill));
       setCopied(true);
       setTimeout(() => setCopied(false), 3000);
-    });
+    } catch {
+      setCopyError(true);
+    }
   }
 
   const badgeClass = categoryColors[skill.category] ?? categoryColors.Utility;
@@ -158,16 +164,21 @@ function SkillModal({ skill, onClose }: { skill: Skill; onClose: () => void }) {
                 {formatInstalls(skill.install_count)}
               </span>
             </div>
-            <button
-              onClick={handleInstall}
-              className={`border px-6 py-3 font-mono text-sm uppercase tracking-widest transition-all ${
-                copied
-                  ? "border-success text-success bg-success/10"
-                  : "border-accent text-accent hover:bg-accent hover:text-void"
-              }`}
-            >
-              {copied ? "✓ Copied SKILL.md" : "Copy SKILL.md"}
-            </button>
+            <div className="flex flex-col items-end gap-2">
+              <button
+                onClick={handleInstall}
+                className={`border px-6 py-3 font-mono text-sm uppercase tracking-widest transition-all ${
+                  copied
+                    ? "border-success text-success bg-success/10"
+                    : "border-accent text-accent hover:bg-accent hover:text-void"
+                }`}
+              >
+                {copied ? "✓ Copied SKILL.md" : "Copy SKILL.md"}
+              </button>
+              <span role="status" className="font-mono text-xs text-red-400">
+                {copyError ? "Could not copy SKILL.md. Check clipboard permissions and try again." : ""}
+              </span>
+            </div>
           </div>
         </div>
     </dialog>
@@ -183,13 +194,19 @@ interface SkillCardProps {
 export function SkillCard({ skill, index = 0 }: SkillCardProps) {
   const [selected, setSelected] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
   const detailsRef = useRef<HTMLButtonElement>(null);
 
-  function handleInstall() {
-    navigator.clipboard.writeText(buildSkillMd(skill)).then(() => {
+  async function handleInstall() {
+    setCopied(false);
+    setCopyError(false);
+    try {
+      await navigator.clipboard.writeText(buildSkillMd(skill));
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
-    });
+    } catch {
+      setCopyError(true);
+    }
   }
 
   const badgeClass = categoryColors[skill.category] ?? categoryColors.Utility;
@@ -243,16 +260,21 @@ export function SkillCard({ skill, index = 0 }: SkillCardProps) {
           <span className="font-mono text-[10px] uppercase tracking-widest text-dim">
             {formatInstalls(skill.install_count)}
           </span>
-          <button
-            onClick={handleInstall}
-            className={`border px-4 py-2 font-mono text-xs uppercase tracking-widest transition-all ${
-              copied
-                ? "border-success text-success bg-success/10"
-                : "border-accent text-accent hover:bg-accent hover:text-void"
-            }`}
-          >
-            {copied ? "Copied SKILL.md" : "Copy SKILL.md"}
-          </button>
+          <div className="flex flex-col items-end gap-2">
+            <button
+              onClick={handleInstall}
+              className={`border px-4 py-2 font-mono text-xs uppercase tracking-widest transition-all ${
+                copied
+                  ? "border-success text-success bg-success/10"
+                  : "border-accent text-accent hover:bg-accent hover:text-void"
+              }`}
+            >
+              {copied ? "Copied SKILL.md" : "Copy SKILL.md"}
+            </button>
+            <span role="status" className="font-mono text-xs text-red-400">
+              {copyError ? "Could not copy SKILL.md. Check clipboard permissions and try again." : ""}
+            </span>
+          </div>
         </div>
       </div>
 
