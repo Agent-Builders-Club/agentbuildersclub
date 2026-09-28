@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 export type SkillCategory = "Research" | "Productivity" | "Social" | "Utility" | "Creative";
 
@@ -36,27 +36,72 @@ function formatInstalls(count: number): string {
   return `${count.toLocaleString("en")} install${count === 1 ? "" : "s"}`;
 }
 
+function buildSkillMd(skill: Skill): string {
+  return [
+    "---",
+    `name: ${JSON.stringify(skill.name.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 64))}`,
+    `description: ${JSON.stringify(skill.description.replace(/\s+/g, " ").trim().slice(0, 1024))}`,
+    "---",
+    "",
+    skill.instructions,
+  ].join("\n");
+}
+
 /* ── Skill Detail Modal ───────────────────────────────────────────────────── */
 function SkillModal({ skill, onClose }: { skill: Skill; onClose: () => void }) {
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
 
-  function handleInstall() {
-    navigator.clipboard.writeText(skill.instructions).then(() => {
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
+  }, []);
+
+  async function handleInstall() {
+    setCopied(false);
+    setCopyError(false);
+    try {
+      await navigator.clipboard.writeText(buildSkillMd(skill));
       setCopied(true);
       setTimeout(() => setCopied(false), 3000);
-    });
+    } catch {
+      setCopyError(true);
+    }
   }
 
   const badgeClass = categoryColors[skill.category] ?? categoryColors.Utility;
   const dotClass = categoryDotColors[skill.category] ?? categoryDotColors.Utility;
 
   return (
-    <>
-      <div
-        onClick={onClose}
-        className="fixed inset-0 z-50 bg-void/80 backdrop-blur-sm animate-fade-in"
-      />
-      <div className="fixed inset-x-4 top-[5vh] z-50 max-h-[90vh] overflow-y-auto border border-border bg-surface shadow-2xl md:inset-x-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-2xl animate-modal-in">
+    <dialog
+      ref={dialogRef}
+      aria-labelledby={titleId}
+      onClose={onClose}
+      onKeyDown={(event) => {
+        if (event.key !== "Tab") return;
+        const buttons = event.currentTarget.querySelectorAll<HTMLButtonElement>("button");
+        const first = buttons[0];
+        const last = buttons[buttons.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }}
+      onClick={(event) => {
+        if (event.target !== event.currentTarget) return;
+        const rect = event.currentTarget.getBoundingClientRect();
+        if (event.clientX < rect.left || event.clientX > rect.right ||
+            event.clientY < rect.top || event.clientY > rect.bottom) {
+          event.currentTarget.close();
+        }
+      }}
+      className="fixed inset-x-4 top-[5vh] m-0 w-auto max-h-[90vh] max-w-none overflow-y-auto border border-border bg-surface p-0 text-text shadow-2xl backdrop:bg-void/80 backdrop:backdrop-blur-sm md:inset-x-auto md:left-1/2 md:top-1/2 md:w-full md:max-w-2xl md:-translate-x-1/2 md:-translate-y-1/2 animate-modal-in"
+    >
         <div className="sticky top-0 z-10 border-b border-border bg-surface px-6 py-4 flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
             <div className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${dotClass}`} />
@@ -64,13 +109,14 @@ function SkillModal({ skill, onClose }: { skill: Skill; onClose: () => void }) {
               <span className={`mb-1.5 inline-block border px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest ${badgeClass}`}>
                 {skill.category}
               </span>
-              <h2 className="font-display text-2xl md:text-3xl tracking-wider text-text leading-tight">
+              <h2 id={titleId} className="font-display text-2xl md:text-3xl tracking-wider text-text leading-tight">
                 {skill.name}
               </h2>
             </div>
           </div>
           <button
-            onClick={onClose}
+            autoFocus
+            onClick={() => dialogRef.current?.close()}
             aria-label="Close skill details"
             className="shrink-0 border border-border px-3 py-1.5 font-mono text-xs uppercase tracking-widest text-dim hover:border-accent hover:text-accent transition-colors"
           >
@@ -118,20 +164,24 @@ function SkillModal({ skill, onClose }: { skill: Skill; onClose: () => void }) {
                 {formatInstalls(skill.install_count)}
               </span>
             </div>
-            <button
-              onClick={handleInstall}
-              className={`border px-6 py-3 font-mono text-sm uppercase tracking-widest transition-all ${
-                copied
-                  ? "border-success text-success bg-success/10"
-                  : "border-accent text-accent hover:bg-accent hover:text-void"
-              }`}
-            >
-              {copied ? "✓ Copied to Clipboard" : "Install Skill"}
-            </button>
+            <div className="flex flex-col items-end gap-2">
+              <button
+                onClick={handleInstall}
+                className={`border px-6 py-3 font-mono text-sm uppercase tracking-widest transition-all ${
+                  copied
+                    ? "border-success text-success bg-success/10"
+                    : "border-accent text-accent hover:bg-accent hover:text-void"
+                }`}
+              >
+                {copied ? "✓ Copied SKILL.md" : "Copy SKILL.md"}
+              </button>
+              <span role="status" className="font-mono text-xs text-red-400">
+                {copyError ? "Could not copy SKILL.md. Check clipboard permissions and try again." : ""}
+              </span>
+            </div>
           </div>
         </div>
-      </div>
-    </>
+    </dialog>
   );
 }
 
@@ -144,25 +194,19 @@ interface SkillCardProps {
 export function SkillCard({ skill, index = 0 }: SkillCardProps) {
   const [selected, setSelected] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
+  const detailsRef = useRef<HTMLButtonElement>(null);
 
-  function buildSkillMd(s: Skill): string {
-    const frontmatter = [
-      "---",
-      `name: ${s.name.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 64)}`,
-      `description: ${s.description.slice(0, 1024)}`,
-      "---",
-      "",
-      s.instructions,
-    ].join("\n");
-    return frontmatter;
-  }
-
-  function handleInstall(e: React.MouseEvent) {
-    e.stopPropagation();
-    navigator.clipboard.writeText(buildSkillMd(skill)).then(() => {
+  async function handleInstall() {
+    setCopied(false);
+    setCopyError(false);
+    try {
+      await navigator.clipboard.writeText(buildSkillMd(skill));
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
-    });
+    } catch {
+      setCopyError(true);
+    }
   }
 
   const badgeClass = categoryColors[skill.category] ?? categoryColors.Utility;
@@ -170,10 +214,16 @@ export function SkillCard({ skill, index = 0 }: SkillCardProps) {
   return (
     <>
       <div
-        onClick={() => setSelected(true)}
         style={{ animationDelay: `${index * 70}ms` }}
-        className="group border border-border bg-surface p-6 hover:border-accent/50 transition-all duration-300 flex flex-col cursor-pointer animate-card-in"
+        className="group border border-border bg-surface p-6 hover:border-accent/50 transition-all duration-300 flex flex-col animate-card-in"
       >
+        <button
+          ref={detailsRef}
+          type="button"
+          aria-label={`${skill.name} details`}
+          onClick={() => setSelected(true)}
+          className="flex flex-1 flex-col text-left cursor-pointer focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-4"
+        >
         <span className={`self-start mb-3 border px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest ${badgeClass}`}>
           {skill.category}
         </span>
@@ -204,25 +254,35 @@ export function SkillCard({ skill, index = 0 }: SkillCardProps) {
           </div>
         )}
 
+        </button>
+
         <div className="flex items-center justify-between mt-auto pt-4 border-t border-border">
           <span className="font-mono text-[10px] uppercase tracking-widest text-dim">
             {formatInstalls(skill.install_count)}
           </span>
-          <button
-            onClick={handleInstall}
-            className={`border px-4 py-2 font-mono text-xs uppercase tracking-widest transition-all ${
-              copied
-                ? "border-success text-success bg-success/10"
-                : "border-accent text-accent hover:bg-accent hover:text-void"
-            }`}
-          >
-            {copied ? "Copied!" : "Install"}
-          </button>
+          <div className="flex flex-col items-end gap-2">
+            <button
+              onClick={handleInstall}
+              className={`border px-4 py-2 font-mono text-xs uppercase tracking-widest transition-all ${
+                copied
+                  ? "border-success text-success bg-success/10"
+                  : "border-accent text-accent hover:bg-accent hover:text-void"
+              }`}
+            >
+              {copied ? "Copied SKILL.md" : "Copy SKILL.md"}
+            </button>
+            <span role="status" className="font-mono text-xs text-red-400">
+              {copyError ? "Could not copy SKILL.md. Check clipboard permissions and try again." : ""}
+            </span>
+          </div>
         </div>
       </div>
 
       {selected && (
-        <SkillModal skill={skill} onClose={() => setSelected(false)} />
+        <SkillModal skill={skill} onClose={() => {
+          setSelected(false);
+          detailsRef.current?.focus();
+        }} />
       )}
     </>
   );
