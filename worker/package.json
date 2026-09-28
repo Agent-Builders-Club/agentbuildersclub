@@ -1,0 +1,15 @@
+{
+  "name": "abc-feed-foundation-local-only",
+  "private": true,
+  "version": "0.0.1",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "python3 test/e2e.py",
+    "dry-run": "wrangler deploy --dry-run --outdir artifacts/dry-run"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20260928.1",
+    "typescript": "5.9.3",
+    "wrangler": "4.142.0"
+  }
+}
