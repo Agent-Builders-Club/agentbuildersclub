@@ -2,7 +2,8 @@
  * Production E2E failure modes (defined before implementation):
  * known ID returns a client-only placeholder, generic title/home canonical,
  * missing landmarks or duplicate mains, private key leakage; unknown ID returns
- * 200; comments/key controls stop working after hydration; fixture accepts writes.
+ * 200 or has a broken skip target; DB errors become false 404s; comments/key
+ * controls stop working after hydration; fixture accepts writes.
  * Run after build: node 'src/app/community/agents/[id]/profile.e2e.mjs'
  * No production database is contacted. The local PostgREST fixture rejects writes.
  */
@@ -27,9 +28,13 @@ const fixture = createServer((req, res) => {
     res.writeHead(405).end(JSON.stringify({ message: 'read-only fixture' })); return;
   }
   if (url.pathname === '/rest/v1/agents') {
+    if (url.searchParams.get('id') === 'eq.db-error-agent') {
+      res.writeHead(503).end(JSON.stringify({ code: 'XX000', message: 'fixture database failure' })); return;
+    }
     const found = url.searchParams.get('id') === `eq.${id}`;
     if (!found) { res.writeHead(406).end(JSON.stringify({ code: 'PGRST116', message: 'The result contains 0 rows' })); return; }
-    res.end(JSON.stringify(Object.fromEntries(Object.entries(agent).filter(([key]) => key !== 'api_key')))); return;
+    const selected = url.searchParams.get('select')?.split(',') ?? [];
+    res.end(JSON.stringify(Object.fromEntries(Object.entries(agent).filter(([key]) => selected.includes(key) || selected.includes('*'))))); return;
   }
   if (url.pathname === '/rest/v1/posts') { res.end(JSON.stringify([post])); return; }
   if (url.pathname === '/rest/v1/rpc/community_post_counts') { res.end(JSON.stringify([{ post_id: post.id, upvote_count: 2, comment_count: 1 }])); return; }
@@ -104,6 +109,24 @@ async function browserSmoke() {
     const alert = await evaluate(`document.querySelector('main [role="alert"]')?.textContent`);
     check('comment button requires key without sending a write', () => assert.match(alert, /Enter your agent API key/));
     check('skip link focuses unique main target', () => { assert.equal(result.skipTarget, '#main-content'); assert.equal(result.focusedMain, true); assert.equal(result.mainCount, 1); assert.equal(result.comment, true); });
+    await send('Page.navigate', { url: `${base}/community/agents/no-such-agent` });
+    let missing;
+    for (let i = 0; i < 100; i++) {
+      missing = await evaluate(`(() => {
+        const main = document.querySelector('main');
+        return { ready: !!main && !!main.querySelector('h1') && main.querySelector('h1').textContent === 'Not Found',
+          navCount: document.querySelectorAll('nav').length, mainCount: document.querySelectorAll('main').length,
+          target: main?.id, skip: !!document.querySelector('a[href="#main-content"]') };
+      })()`);
+      if (missing.ready) break;
+      await delay(100);
+    }
+    check('unknown 404 has one nav and one reachable main landmark', () => {
+      assert.equal(missing.ready, true); assert.equal(missing.navCount, 1); assert.equal(missing.mainCount, 1);
+      assert.equal(missing.target, 'main-content'); assert.equal(missing.skip, true);
+    });
+    const missingFocus = await evaluate(`(() => { document.querySelector('a[href="#main-content"]').click(); return { hash: location.hash, focused: document.activeElement === document.querySelector('main') }; })()`);
+    check('unknown 404 skip link focuses main', () => { assert.equal(missingFocus.hash, '#main-content'); assert.equal(missingFocus.focused, true); });
   } finally {
     socket?.close(); browser.kill('SIGTERM'); await rm(profileDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
@@ -129,15 +152,22 @@ try {
     assert.equal((html.match(/<footer\b/g) ?? []).length, 1);
     assert.match(html, /href="#main-content"/);
   });
-  check('public projection excludes API key', () => { assert.ok(!html.includes(secret)); assert.ok(!html.includes('api_key')); });
+  check('public projection excludes API key', () => {
+    assert.ok(fixtureRequests.some(request => request.includes('/rest/v1/agents?')));
+    assert.ok(fixtureRequests.filter(request => request.includes('/rest/v1/agents?')).every(request => !new URL(request.split(' ')[1], base).searchParams.get('select')?.split(',').includes('api_key')));
+    assert.ok(!html.includes(secret)); assert.ok(!html.includes('api_key'));
+  });
   const unknown = await fetch(`${base}/community/agents/no-such-agent`);
   const missingHtml = await unknown.text();
   check('unknown profile true HTTP 404 and branded recovery', () => {
     assert.equal(unknown.status, 404); assert.match(missingHtml, /Not Found/); assert.match(missingHtml, /Back to Home/);
   });
+  const failed = await fetch(`${base}/community/agents/db-error-agent`);
+  await failed.text();
+  check('database failure stays server error rather than false 404', () => assert.ok(failed.status >= 500 && failed.status < 600, `got ${failed.status}`));
   await browserSmoke();
   check('fixture rejected any write', () => { assert.ok(fixtureRequests.every(request => request.startsWith('GET ') || request.startsWith('POST /rest/v1/rpc/community_post_counts'))); });
-  const report = { checks, knownStatus: known.status, unknownStatus: unknown.status, fixtureRequests };
+  const report = { checks, knownStatus: known.status, unknownStatus: unknown.status, dbErrorStatus: failed.status, fixtureRequests };
   const artifact = join(tmpdir(), 'abc-profile-production-e2e.json');
   await writeFile(artifact, JSON.stringify(report, null, 2) + '\n');
   console.log(JSON.stringify({ artifact, ...report }, null, 2));
