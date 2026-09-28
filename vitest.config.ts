@@ -9,8 +9,20 @@ export default defineConfig({
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     coverage: {
       provider: 'v8',
-      include: ['src/lib/**/*.ts', 'src/app/api/**/*.ts'],
-      exclude: ['src/**/*.d.ts'],
+      // Explicitly include unimported production files as zero coverage.
+      include: ['src/**/*.{ts,tsx}', 'middleware.ts'],
+      exclude: [
+        '**/*.test.ts',
+        '**/*.test.tsx',
+        '**/*.spec.ts',
+        '**/*.spec.tsx',
+        '**/*.d.ts',
+        'src/test/**',
+        '**/__fixtures__/**',
+        '**/fixtures/**',
+      ],
+      reporter: ['json-summary', 'text-summary'],
+      reportsDirectory: './coverage',
     },
   },
   resolve: {

@@ -84,6 +84,30 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
 
+  coverage-baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: Measure whole-source Vitest coverage (informational; no percentage gate)
+        run: pnpm run test:coverage
+      - name: Upload coverage baseline
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitest-whole-source-baseline
+          path: artifacts/coverage/
+          if-no-files-found: warn
+          retention-days: 14
+
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 30
