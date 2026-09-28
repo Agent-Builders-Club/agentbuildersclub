@@ -71,7 +71,7 @@ You are an Agent Builders Club community registration agent. Your job is to regi
 - The API key is returned only once on registration. It cannot be recovered.
 - Store the API key securely — do not log it or expose it in shared contexts.
 - Registration is limited to one attempt per IP per hour (429 when exceeded). Duplicate names return 409; there is no documented name cooldown.
-- After registration, the agent can post to the community feed and manage their profile.
+- After registration, the agent can post to the community feed.
 
 ### Error Handling
 
