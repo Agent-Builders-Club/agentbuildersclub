@@ -15,6 +15,8 @@ const image = 'postgrest/postgrest:v14.1@sha256:e9490aa503a5fb07d8e8c80da46e5c0c
 const failures = [];
 const cases = [];
 let db, role, container, next, gateway;
+let sharedRolesCreated = false;
+const migrationList = [];
 const pg = { PGHOST: '127.0.0.1', PGPORT: '5432', PGUSER: 'postgres', PGDATABASE: 'postgres', PGPASSWORD: 'test-only-password' };
 const restPort = 33281, nextPort = 33282;
 const restUrl = `http://127.0.0.1:${restPort}`;
@@ -159,11 +161,15 @@ async function main() {
   const secret = randomBytes(48).toString('hex');
   const key = jwt(secret);
   sql(`CREATE ROLE ${role} LOGIN NOINHERIT PASSWORD '${rolePassword}'; CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN; CREATE ROLE service_role NOLOGIN BYPASSRLS; GRANT anon, service_role TO ${role};`);
+  sharedRolesCreated = true;
   sql(`CREATE DATABASE ${db}`);
   sql('GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role', db);
   const migrations = readdirSync(resolve(root, 'supabase/migrations')).filter(f => f.endsWith('.sql')).sort();
   check(migrations.length === 15 && migrations[0].startsWith('001_') && migrations.at(-1).startsWith('20260904230939_'), 'unexpected migration set/order');
-  for (const file of migrations) command('psql', ['-X', '-v', 'ON_ERROR_STOP=1', '-d', db, '-f', resolve(root, 'supabase/migrations', file)]);
+  for (const file of migrations) {
+    command('psql', ['-X', '-v', 'ON_ERROR_STOP=1', '-d', db, '-f', resolve(root, 'supabase/migrations', file)]);
+    migrationList.push(file);
+  }
   command('psql', ['-X', '-v', 'ON_ERROR_STOP=1', '-d', db, '-f', resolve(root, 'scripts/test-database.sql')]);
   const uri = `postgres://${role}:${rolePassword}@127.0.0.1:5432/${db}`;
   // Linux GitHub runner: host networking reaches the loopback-bound PG service.
@@ -194,10 +200,8 @@ async function main() {
   });
   await ready(appUrl, r => r.status > 0);
   await journey(key);
-  return migrations;
 }
-let migrationList = [];
-try { migrationList = await main(); }
+try { await main(); }
 catch (e) { failures.push(e.message); console.error(`API+DB E2E failed: ${e.message}`); }
 finally {
   if (next) { next.kill('SIGTERM'); await new Promise(r => { next.once('exit', r); setTimeout(r, 3000); }); if (next.exitCode === null) next.kill('SIGKILL'); }
@@ -205,6 +209,12 @@ finally {
   if (container) { try { command('docker', ['rm', '-f', container], {}); } catch { failures.push('PostgREST teardown failed'); } }
   if (db) { try { sql(`DROP DATABASE IF EXISTS ${db} WITH (FORCE)`); check(sql(`SELECT count(*) FROM pg_database WHERE datname='${db}'`) === '0', 'database teardown not verified'); } catch { failures.push('database teardown failed'); } }
   if (role) { try { sql(`DROP ROLE IF EXISTS ${role}`); check(sql(`SELECT count(*) FROM pg_roles WHERE rolname='${role}'`) === '0', 'role teardown not verified'); } catch { failures.push('role teardown failed'); } }
+  if (sharedRolesCreated) {
+    try {
+      sql('DROP ROLE IF EXISTS anon, authenticated, service_role');
+      check(sql("SELECT count(*) FROM pg_roles WHERE rolname IN ('anon','authenticated','service_role')") === '0', 'shared role teardown not verified');
+    } catch { failures.push('shared role teardown failed'); }
+  }
   const result = failures.length === 0 && cases.length === 7 && cases.every(c => c.status === 'passed') ? 'passed' : 'failed';
   mkdirSync(artifact, { recursive: true });
   writeFileSync(resolve(artifact, 'manifest.json'), JSON.stringify({ schema: 1, commit: command('git', ['rev-parse', 'HEAD'], {}), result, stack: { postgres: '17', postgrest: image, app: 'next build + next start over loopback' }, migrations: migrationList, cases, failures }, null, 2) + '\n');
