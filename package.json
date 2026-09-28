@@ -11,6 +11,7 @@
     "format:check": "prettier --check package.json tsconfig.json .github/workflows/ci.yml",
     "typecheck": "tsc --noEmit --skipLibCheck",
     "test": "vitest run --passWithNoTests",
+    "test:coverage": "node scripts/coverage-baseline.mjs",
     "test:watch": "vitest",
     "test:e2e": "node scripts/run-e2e.mjs"
   },
