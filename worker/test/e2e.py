@@ -57,6 +57,34 @@ def main():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
         listener.bind(('127.0.0.1', 0))
         PORT = listener.getsockname()[1]
+    # An already-applied foundation DB must accept only the additive migration.
+    legacy = ROOT / 'artifacts' / 'd1-legacy'
+    legacy_migrations = ROOT / 'artifacts' / 'legacy-migrations'
+    legacy_config = ROOT / 'artifacts' / 'wrangler.legacy.json'
+    shutil.rmtree(legacy, ignore_errors=True)
+    shutil.rmtree(legacy_migrations, ignore_errors=True)
+    legacy_migrations.mkdir(parents=True)
+    for name in ['0001_feed.sql','0002_local_key_cas.sql']:
+        shutil.copy2(ROOT / 'migrations' / name, legacy_migrations / name)
+    config = json.loads((ROOT / 'wrangler.jsonc').read_text())
+    config['d1_databases'][0]['migrations_dir'] = str(legacy_migrations)
+    legacy_config.write_text(json.dumps(config))
+    legacy_args = ['--local', '--persist-to', str(legacy)]
+    legacy_checks = []
+    try:
+        old_apply = run('d1','migrations','apply','DB','--config',str(legacy_config),*legacy_args)
+        check('0001_feed.sql' in old_apply and '0002_local_key_cas.sql' in old_apply, 'legacy baseline applied', legacy_checks)
+        run('d1','execute','DB',*legacy_args,'--command',"INSERT INTO agents (id,name,owner,created_at) VALUES ('legacy','Legacy','Owner','2026-01-01T00:00:00.000Z'); INSERT INTO posts (id,agent_id,content,created_at) VALUES ('old','legacy','Old','2026-01-01T00:00:00.000Z')")
+        upgraded = run('d1','migrations','apply','DB',*legacy_args)
+        check('0003_feed_counts.sql' in upgraded and '0001_feed.sql' not in upgraded, 'additive legacy upgrade', legacy_checks)
+        check(rows('SELECT id FROM posts',legacy_args)==[{'id':'old'}], 'legacy posts preserved', legacy_checks)
+        check(rows('SELECT count(*) AS n FROM comments',legacy_args)==[{'n':0}], 'legacy count tables created', legacy_checks)
+        run('d1','execute','DB',*legacy_args,'--command',"INSERT INTO upvotes (id,post_id,agent_id,created_at) VALUES ('old-v1','old','legacy','2026-01-01T01:00:00.000Z'),('old-v2','old','legacy','2026-01-01T02:00:00.000Z')")
+        check(rows('SELECT id,created_at FROM upvotes ORDER BY id',legacy_args)==[{'id':'old-v1','created_at':'2026-01-01T01:00:00.000Z'},{'id':'old-v2','created_at':'2026-01-01T02:00:00.000Z'}], 'legacy upgrade accepts duplicate vote timestamps', legacy_checks)
+        check('No migrations to apply' in run('d1','migrations','list','DB',*legacy_args), 'legacy no pending migrations', legacy_checks)
+    finally:
+        legacy_config.unlink(missing_ok=True)
+        shutil.rmtree(legacy_migrations, ignore_errors=True)
     shutil.rmtree(PERSIST, ignore_errors=True)
     PERSIST.mkdir(parents=True)
     args = ['--local', '--persist-to', str(PERSIST)]
@@ -74,6 +102,9 @@ def main():
         "INSERT INTO agents (id,name,owner,website,photo_url,skills,muted,created_at) VALUES ('duplicate-name','ALPHA','x','','','[]',0,'2026-01-01T00:00:00.000Z')",
         "INSERT INTO agents (id,name,owner,website,photo_url,skills,muted,created_at) VALUES ('bad','x','x','','','not json',0,'2026-01-01T00:00:00.000Z')",
         "INSERT INTO agents (id,name,owner,website,photo_url,skills,muted,created_at) VALUES ('bad','x','x','','','[]',2,'2026-01-01T00:00:00.000Z')",
+        "INSERT INTO comments (id,post_id,agent_id,content,created_at) VALUES ('bad','missing','a','x','2026-01-01T00:00:00.000Z')",
+        "INSERT INTO upvotes (id,post_id,agent_id) VALUES ('bad','missing','a')",
+        "INSERT INTO upvotes (id,post_id,agent_id,created_at) VALUES ('bad','z','b','invalid')",
     ]:
         p = subprocess.run([str(WRANGLER),'d1','execute','DB',*args,'--command',query], cwd=ROOT, capture_output=True, text=True)
         check(p.returncode != 0, 'constraint rejects invalid row ' + str(len(checks)), checks)
@@ -91,7 +122,7 @@ def main():
                 status, _, body = request(token=TOKEN)
                 if server.poll() is not None:
                     raise RuntimeError('wrangler dev exited while another listener answered')
-                if status == 200 and isinstance(body, list) and [row.get('id') for row in body] == ['z', 'y', 'x']:
+                if status == 200 and isinstance(body, list) and [row.get('id') for row in body] == ['z', 'y', 'r', 'x']:
                     break
             except (urllib.error.URLError, TimeoutError):
                 pass
@@ -110,7 +141,7 @@ def main():
                 raise RuntimeError('default wrangler dev exited before enabled-gate readiness')
             try:
                 status, _, body = request(token=TOKEN)
-                if status == 200 and isinstance(body, list) and [row.get('id') for row in body] == ['z', 'y', 'x']:
+                if status == 200 and isinstance(body, list) and [row.get('id') for row in body] == ['z', 'y', 'r', 'x']:
                     break
             except (urllib.error.URLError, TimeoutError):
                 pass
@@ -128,7 +159,7 @@ def main():
                 raise RuntimeError('local write-contract wrangler dev exited before readiness')
             try:
                 status, _, body = request(token=TOKEN)
-                if status == 200 and isinstance(body, list) and [row.get('id') for row in body] == ['z', 'y', 'x']:
+                if status == 200 and isinstance(body, list) and [row.get('id') for row in body] == ['z', 'y', 'r', 'x']:
                     break
             except (urllib.error.URLError, TimeoutError):
                 pass
@@ -146,19 +177,41 @@ def main():
         check(status == 501 and body == {'error':'Authenticated feed unavailable'}, 'agent key fail closed', checks)
         status, headers, body = request(token=TOKEN)
         check(status == 200 and headers.get('Cache-Control') == 'private, no-store', 'authorized private feed', checks)
-        check([r['id'] for r in body] == ['z','y','x'], 'order, muted exclusion', checks)
+        check([r['id'] for r in body] == ['z','y','r','x'], 'order, muted exclusion', checks)
         check(body[0]['agent_post_count'] == 2 and body[0]['agent_capability_tag'] == 'Search, Tools', 'projected stats and skills', checks)
         check(body[0]['parent_agent_name'] == 'Alpha' and body[0]['parent_agent_website'] == 'https://alpha.test', 'parent author', checks)
         check(body[1]['agent_last_active'] == '2026-01-03T00:00:00.000Z', 'last active', checks)
-        check(all(r['upvote_count'] == 0 and r['comment_count'] == 0 and r['user_upvoted'] is False for r in body), 'fixture-only counts', checks)
+        check([(r['id'],r['upvote_count'],r['comment_count'],r['user_upvoted']) for r in body] == [('z',2,1,False),('y',0,0,False),('r',0,0,False),('x',1,1,False)], 'muted voter counted but muted commenter excluded', checks)
+        run('d1','execute','DB',*args,'--command',"INSERT INTO upvotes (id,post_id,agent_id,created_at) VALUES ('u4','z','b','2026-01-05T01:02:03.000Z'),('u5','z','b','2026-01-05T01:02:04.000Z')")
+        check(rows("SELECT id,created_at FROM upvotes WHERE id IN ('u4','u5') ORDER BY id",args) == [{'id':'u4','created_at':'2026-01-05T01:02:03.000Z'},{'id':'u5','created_at':'2026-01-05T01:02:04.000Z'}], 'duplicate vote timestamps persisted in D1', checks)
+        status, _, duplicate_feed = request('/v1/feed', TOKEN)
+        check(status == 200 and duplicate_feed[0]['id'] == 'z' and duplicate_feed[0]['upvote_count'] == 4 and duplicate_feed[0]['comment_count'] == 1, 'duplicate votes counted over HTTP', checks)
+        check('parent_agent_name' not in body[2] and body[2]['parent_id'] == 'q', 'muted parent identity hidden but id preserved', checks)
+        base_fields = {'id','agent_id','agent_name','agent_website','agent_photo_url','owner','content','image_url','parent_id','created_at','upvote_count','comment_count','user_upvoted','agent_post_count','agent_last_active','agent_capability_tag'}
+        check(all(set(r) == base_fields | ({'parent_agent_name','parent_agent_website'} if r['id']=='z' else set()) for r in body), 'exact anonymous projection', checks)
         check(TOKEN not in json.dumps(body) and 'api_key' not in json.dumps(body), 'no secret in response', checks)
         status, _, body = request('/v1/feed?offset=1', TOKEN)
-        check(status == 200 and [r['id'] for r in body] == ['y','x'], 'offset', checks)
+        check(status == 200 and [r['id'] for r in body] == ['y','r','x'], 'offset', checks)
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            reads = list(pool.map(lambda _: request('/v1/feed?offset=0', TOKEN), range(8)))
+        check(all(s==200 and [r['id'] for r in result]==['z','y','r','x'] for s,_,result in reads), 'concurrent anonymous reads', checks)
         for offset in ['-1','10001','1.2','NaN','1e2','', '1&offset=2']:
             status, _, body = request('/v1/feed?offset='+offset, TOKEN)
             check(status == 400 and body == {'error':'Invalid offset'}, 'invalid offset '+offset, checks)
-        status, _, body = request('/v1/feed?offset=10000', TOKEN)
-        check(status == 200 and body == [], 'empty feed', checks)
+        status, empty_headers, body = request('/v1/feed?offset=10000', TOKEN)
+        check(status == 200 and body == [] and empty_headers.get('Cache-Control') == 'private, no-store', 'empty private feed', checks)
+        # Exercise the SQL limit against actual extra D1 rows, not a mocked page.
+        bulk = ROOT / 'artifacts' / 'pagination.sql'
+        bulk.write_text(''.join(f"INSERT INTO posts (id,agent_id,content,created_at) VALUES ('page-{i:02d}','b','Synthetic','2026-01-05T00:00:00.000Z');\n" for i in range(51)))
+        try:
+            run('d1','execute','DB',*args,'--file',str(bulk))
+        finally:
+            bulk.unlink(missing_ok=True)
+        status, _, first_page = request('/v1/feed', TOKEN)
+        check(status == 200 and len(first_page) == 50 and first_page[0]['id']=='page-50' and first_page[-1]['id']=='page-01', '50 row limit and tie break', checks)
+        status, _, second_page = request('/v1/feed?offset=50', TOKEN)
+        check(status == 200 and [r['id'] for r in second_page]==['page-00','z','y','r','x'], 'next page without overlap', checks)
+        check(second_page[2]['agent_post_count']==53 and second_page[2]['agent_last_active']=='2026-01-05T00:00:00.000Z', 'stats across pages', checks)
         status, _, body = request('/v1/feed', TOKEN, method='POST')
         check(status == 405, 'read-only route', checks)
         status, _, body = request('/unknown', TOKEN)
@@ -204,8 +257,8 @@ def main():
         run('d1','execute','DB',*args,'--command','DROP TABLE posts')
         status, _, body = request('/v1/feed', TOKEN)
         check(status == 503 and body == {'error':'Unable to load feed'}, 'generic DB failure', checks)
-        ARTIFACT.write_text(json.dumps({'checks':checks,'migration_applied':['0001_feed.sql','0002_local_key_cas.sql'],'pending':pending.strip(),'authorized_fixture':{'ids':['z','y','x'],'offset_1':['y','x']},'write_contract':{'parallel_winners':1,'parallel_conflicts':7,'audit_rollback':True,'final_version':2},'runtime':'wrangler dev --local + d1 execute --local','secrets':'redacted'}, indent=2)+'\n')
-        print(f'PASS {len(checks)} checks; artifact {ARTIFACT}')
+        ARTIFACT.write_text(json.dumps({'checks':legacy_checks+checks,'migration_applied':['0001_feed.sql','0002_local_key_cas.sql','0003_feed_counts.sql'],'pending':pending.strip(),'authorized_fixture':{'ids':['z','y','r','x'],'offset_1':['y','r','x'],'counts_before_duplicates':{'z':[2,1],'x':[1,1]},'counts_after_duplicates':{'z':[4,1]},'pagination':{'page_size':50,'second_page_size':5}},'write_contract':{'parallel_winners':1,'parallel_conflicts':7,'audit_rollback':True,'final_version':2},'runtime':'wrangler dev --local + d1 execute --local','secrets':'redacted'}, indent=2)+'\n')
+        print(f'PASS {len(legacy_checks+checks)} checks; artifact {ARTIFACT}')
     finally:
         if server is not None:
             server.terminate()
