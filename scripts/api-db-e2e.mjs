@@ -21,9 +21,14 @@ const restUrl = `http://127.0.0.1:${restPort}`;
 const gatewayUrl = 'http://127.0.0.1:33280';
 const appUrl = `http://127.0.0.1:${nextPort}`;
 function check(condition, message) { if (!condition) throw Error(message); }
-function command(bin, args, env = pg) {
+function command(bin, args, env = pg, showSafeFailure = false) {
   const r = spawnSync(bin, args, { cwd: root, env: { PATH: process.env.PATH, HOME: process.env.HOME, ...env }, encoding: 'utf8', timeout: 300000 });
-  if (r.error || r.status !== 0) throw Error(`${bin} failed (${r.status ?? r.error?.code}); output withheld (may contain credentials)`);
+  if (r.error || r.status !== 0) {
+    // Only the credential-free Next build may print diagnostics. SQL/Docker output
+    // can contain generated JWTs or passwords and must remain withheld.
+    if (showSafeFailure) console.error((r.stdout + r.stderr).slice(-6000));
+    throw Error(`${bin} failed (${r.status ?? r.error?.code}); ${showSafeFailure ? 'credential-free build diagnostics above' : 'output withheld (may contain credentials)'}`);
+  }
   return r.stdout.trim();
 }
 function sql(query, database = 'postgres') {
@@ -183,7 +188,7 @@ async function main() {
   });
   await new Promise((accept, reject) => { gateway.once('error', reject); gateway.listen(33280, '127.0.0.1', accept); });
   const buildEnv = { PATH: process.env.PATH, HOME: process.env.HOME, NEXT_TELEMETRY_DISABLED: '1', CI: 'true' };
-  command(resolve(root, 'node_modules/.bin/next'), ['build'], buildEnv);
+  command(resolve(root, 'node_modules/.bin/next'), ['build'], buildEnv, true);
   next = spawn(resolve(root, 'node_modules/.bin/next'), ['start', '-H', '127.0.0.1', '-p', String(nextPort)], {
     cwd: root, env: { ...buildEnv, SUPABASE_URL: gatewayUrl, SUPABASE_SERVICE_ROLE_KEY: key, PORT: String(nextPort) }, stdio: 'ignore',
   });
