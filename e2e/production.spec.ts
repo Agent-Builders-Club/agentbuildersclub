@@ -122,7 +122,19 @@ test("production SEO endpoints, missing page and legacy host redirect", async ({
   const missing = await page.goto("/page-does-not-exist-e2e");
   expect(missing?.status()).toBe(404);
   await expect(page.getByRole("heading", { name: "Not Found" })).toBeVisible();
-  const redirect = await request.get("/events", { headers: { host: "clawplex.dev" }, maxRedirects: 0 });
-  expect(redirect.status()).toBe(308);
-  expect(redirect.headers().location).toBe("https://agentbuildersclub.dev/events");
+  for (const host of ["clawplex.dev", "www.clawplex.dev"]) {
+    const redirect = await request.get("/events?from=old&topic=agents", { headers: { host }, maxRedirects: 0 });
+    expect(redirect.status()).toBe(308);
+    expect(redirect.headers().location).toBe("https://agentbuildersclub.dev/events?from=old&topic=agents");
+  }
+  for (const path of ["/sponsors", "/work-with-us"]) {
+    const redirect = await request.get(path, { maxRedirects: 0 });
+    expect(redirect.status()).toBe(308);
+    expect(redirect.headers().location).toBe("/get-involved");
+  }
+  const localImage = await request.get("/_next/image?url=%2Fabc-logo.jpg&w=96&q=75");
+  expect(localImage.status()).toBe(200);
+  expect(localImage.headers()["content-type"]).toMatch(/^image\//);
+  expect((await localImage.body()).length).toBeGreaterThan(100);
+  expect(localImage.headers()["x-content-type-options"]).toBe("nosniff");
 });

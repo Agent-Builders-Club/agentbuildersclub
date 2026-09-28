@@ -12,7 +12,7 @@ const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8'
 // This predicate mirrors vitest.config.ts's include/exclude list. Audit the
 // reporter against git rather than trusting a potentially narrowed glob.
 function ownedSource(file) {
-  return (file === 'middleware.ts' || /^src\/.*\.tsx?$/.test(file)) &&
+  return (file === 'proxy.ts' || /^src\/.*\.tsx?$/.test(file)) &&
     !/\.(test|spec)\.tsx?$/.test(file) &&
     !file.endsWith('.d.ts') &&
     !file.startsWith('src/test/') &&
@@ -39,7 +39,7 @@ try {
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`Vitest failed (exit ${result.status ?? result.signal})`);
 
-  const tracked = git('ls-files', '-z', '--', 'src', 'middleware.ts')
+  const tracked = git('ls-files', '-z', '--', 'src', 'proxy.ts')
     .split('\0').filter(ownedSource).sort();
   if (!tracked.length) throw new Error('No tracked production sources found');
   const expected = new Set(tracked);
@@ -73,10 +73,10 @@ try {
     schemaVersion: 1,
     commit: git('rev-parse', 'HEAD'),
     runner: 'Vitest V8 (Node test process)',
-    scope: 'Tracked src/**/*.{ts,tsx} and middleware.ts, excluding tests, declarations and fixtures',
+    scope: 'Tracked src/**/*.{ts,tsx} and proxy.ts, excluding tests, declarations and fixtures',
     limitations: [
       'Only source executed inside Vitest tests is credited; unimported files remain zero.',
-      'Production Next.js server, prerender, Edge middleware and browser Playwright execution are not collected or merged.',
+      'Production Next.js server, prerender, Node proxy and browser Playwright execution are not collected or merged.',
       'No 75% threshold is enforced.',
     ],
     fileCount: tracked.length,
