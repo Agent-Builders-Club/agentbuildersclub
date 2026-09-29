@@ -10,7 +10,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       // Explicitly include unimported production files as zero coverage.
-      include: ['src/**/*.{ts,tsx}', 'middleware.ts'],
+      include: ['src/**/*.{ts,tsx}', 'proxy.ts'],
       exclude: [
         '**/*.test.ts',
         '**/*.test.tsx',

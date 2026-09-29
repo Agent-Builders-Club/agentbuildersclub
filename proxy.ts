@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 const LOCALE = "en";
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Preserve the old domain's links and search equity while the rebrand settles.
