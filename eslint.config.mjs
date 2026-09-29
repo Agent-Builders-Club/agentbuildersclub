@@ -23,7 +23,7 @@ const eslintConfig = [
     files: ["src/app/community/community-client.tsx", "**/profile-client.tsx"],
     rules: { "react-hooks/set-state-in-effect": "off" },
   },
-  { ignores: ["coverage/**"] },
+  { ignores: ["coverage/**", ".open-next/**", "artifacts/opennext/**"] },
 ];
 
 export default eslintConfig;

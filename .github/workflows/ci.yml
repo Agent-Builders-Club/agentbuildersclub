@@ -84,6 +84,35 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
 
+  cf-adapter-local:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build:cf
+      # Preview loads the compiled edge config, so regression checks must follow a fresh build.
+      - run: pnpm run test:cf-credentials
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: node scripts/spike-opennext.mjs
+      - run: node scripts/check-opennext-credentials.mjs && pnpm exec wrangler deploy --dry-run
+      - name: Upload local-only adapter smoke evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: opennext-local-smoke
+          path: artifacts/opennext/smoke.json
+          if-no-files-found: warn
+          retention-days: 14
+
   coverage-baseline:
     runs-on: ubuntu-latest
     steps:
