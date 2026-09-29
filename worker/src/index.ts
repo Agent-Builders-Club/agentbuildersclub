@@ -1,3 +1,5 @@
+import { publicSkills } from './public-skills';
+
 // Narrow structural D1 contract avoids loading Worker globals into the Next tsconfig.
 interface FeedDatabase {
   prepare(query: string): { bind(...values: unknown[]): {
@@ -43,6 +45,8 @@ const handler = {
     // Authenticate before route, method, query, or database inspection.
     if (!await authorized(request, env.INTERNAL_API_TOKEN)) return json({ error: 'Unauthorized' }, 401);
     const url = new URL(request.url);
+    const skills = await publicSkills(request, env, url.pathname);
+    if (skills) return skills;
     if (url.pathname !== '/v1/feed') return json({ error: 'Not found' }, 404);
     if (request.method !== 'GET') return json({ error: 'Method not allowed' }, 405);
     // The agent-key and personalized upvote path is deliberately unavailable.
