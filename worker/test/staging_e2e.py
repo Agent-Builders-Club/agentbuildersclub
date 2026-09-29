@@ -91,20 +91,21 @@ def main():
     finally:
         legacy_config.unlink(missing_ok=True)
         shutil.rmtree(legacy_dir, ignore_errors=True)
-    # A later failed migration must not leave partial DDL or erase earlier feed rows.
+    # A failed migration after skills must roll back its own DDL without erasing the feed or skills schema.
     rollback = ART / 'staging-rollback'
     rollback_dir = ART / 'staging-rollback-migrations'
     rollback_config = ART / 'staging-rollback-config.json'
     rollback_dir.mkdir(exist_ok=True)
     for name in NAMES:
         shutil.copy2(ROOT / 'migrations.staging' / name, rollback_dir / name)
-    (rollback_dir / '0003_failure.sql').write_text('CREATE TABLE should_rollback (id TEXT);\nINSERT INTO missing_table VALUES (1);\n')
+    (rollback_dir / '0004_failure.sql').write_text('CREATE TABLE should_rollback (id TEXT);\nINSERT INTO missing_table VALUES (1);\n')
     config['d1_databases'][0]['migrations_dir'] = str(rollback_dir)
     rollback_config.write_text(json.dumps(config))
     try:
-        check('missing_table' in cmd('d1', 'migrations', 'apply', 'DB', '--config', str(rollback_config), '--local', '--persist-to', str(rollback), success=False), 'failed third migration rejects invalid SQL')
+        check('missing_table' in cmd('d1', 'migrations', 'apply', 'DB', '--config', str(rollback_config), '--local', '--persist-to', str(rollback), success=False), 'failed fourth migration rejects invalid SQL')
         check(db("SELECT name FROM sqlite_master WHERE name = 'should_rollback'", rollback) == [], 'failed migration DDL rolled back')
-        check({'agents', 'posts', 'comments', 'upvotes'}.issubset({r['name'] for r in db("SELECT name FROM sqlite_master WHERE type='table'", rollback)}), 'earlier successful feed migrations retained')
+        check({'agents', 'posts', 'comments', 'upvotes', 'skills'}.issubset({r['name'] for r in db("SELECT name FROM sqlite_master WHERE type='table'", rollback)}), 'earlier feed and skills migrations retained')
+        check([r['name'] for r in db('SELECT name FROM d1_migrations ORDER BY id', rollback)] == NAMES, 'failed migration absent from durable ledger')
     finally:
         rollback_config.unlink(missing_ok=True)
         shutil.rmtree(rollback_dir, ignore_errors=True)
