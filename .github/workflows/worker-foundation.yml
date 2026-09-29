@@ -30,12 +30,15 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run test:e2e
+      - run: python3 test/staging_e2e.py
       - run: npm run dry-run
       - name: Upload local-only E2E artifact
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: worker-foundation-e2e
-          path: worker/artifacts/e2e.json
+          path: |
+            worker/artifacts/e2e.json
+            worker/artifacts/staging-e2e.json
           if-no-files-found: warn
           retention-days: 14

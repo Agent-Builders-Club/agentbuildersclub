@@ -1,6 +1,6 @@
 # Local-only Cloudflare read/write contract foundation
 
-**Do not deploy this package.** This is a synthetic-data D1/Worker acceptance fixture, not a production feed migration. The application remains Vercel Next + Supabase, unchanged. `wrangler.jsonc` deliberately has a fake UUID, unique local-only name, `workers_dev: false`, `preview_urls: false`, and no route/account or real resource binding. A dry-run is not an approval to deploy. No live D1 or Supabase data was read or written.
+**Do not deploy the default or local-write config.** This is a synthetic-data D1/Worker acceptance fixture, not a production feed migration. The application remains Vercel Next + Supabase, unchanged. `wrangler.jsonc` deliberately has a fake UUID, unique local-only name, `workers_dev: false`, `preview_urls: false`, and no route/account or real resource binding. A separately reviewed `wrangler.staging.jsonc` pins the newly created isolated staging D1, but does not authorize a Worker deploy or real-data import. A dry-run is not an approval to deploy. No live D1 or Supabase data was read or written.
 
 ## Contract (provisional v1)
 
@@ -22,11 +22,43 @@ From `worker/`:
 npm ci
 npm run typecheck
 npm run test:e2e
+python3 test/staging_e2e.py
 npm run dry-run
 ```
 
 The E2E first applies `0001`/`0002` in a separate legacy local D1 with a temporary Wrangler migration directory, inserts a pre-upgrade row, then applies only `0003`, verifying row preservation and no pending migrations. It also creates `artifacts/d1-fresh` from scratch, applies all three migrations via `wrangler d1 migrations apply DB --local --persist-to ...`, confirms no pending migrations via `migrations list`, inserts deterministic SQL through `wrangler d1 execute`, and tests constraints. It starts real default-config `wrangler dev --local` on an allocated `127.0.0.1` loopback port against that DB and asserts that the write route is 404 both without and with the runtime gate. It then starts `wrangler dev --config wrangler.local.jsonc --local` for the remaining HTTP and D1 checks, including real muted counts, parent privacy, 50-row pagination, concurrent reads, authorization and non-GET/error responses. It confirms each spawned process serves the expected synthetic fixture, terminates each, clears any prior success artifact before setup, generates a random token and write gate in temporary ignored `.dev.vars`, removes them even on failure, never records the token in `artifacts/e2e.json`, and deliberately drops a table *after* the feed/write checks to verify generic 503. The artifact is repeatable and ignored, not committed. `npm run dry-run` bundles only the default entrypoint; it is not a remote deployment.
 
+## Isolated staging D1 (not yet applied)
+
+`wrangler.staging.jsonc` pins account `52fd7f274b96876a4085c530a53b759c`, D1 `abc-staging-20260929` / `58520610-7890-4fbe-92ac-a5e987148e83`, and a unique Worker name. It uses only `src/index.ts` (never `src/local-write.ts`), disables workers.dev and preview URLs, and has no route/zone, public caller, secret value, or deployment in this change. Do not use `wrangler.local.jsonc` or the implicit default config for staging. The D1 has been reported newly created and empty; neither the name/UUID check nor a migration list proves that it is empty, so inspect the remote schema before applying. The versioned `migrations.staging/` chain contains **only** feed `0001` and counts `0002`; the default/local `migrations/0002_local_key_cas.sql` is a test-only CAS contract and must never enter remote staging. This is synthetic read-model schema, **not** production data/schema. After the public-skills PR merges, its migration must be added separately with a new staging migration and reviewed preflight hashes; do not include it here.
+
+Before any **separately approved** remote migration, from `worker/` with reviewed credentials in the intended Cloudflare account:
+
+```sh
+npm ci
+python3 test/staging_preflight.py
+npm run typecheck
+npm run test:e2e
+python3 test/staging_e2e.py
+npm run dry-run
+./node_modules/.bin/wrangler deploy --config wrangler.staging.jsonc --dry-run --outdir artifacts/staging-dry-run
+./node_modules/.bin/wrangler d1 migrations list DB --config wrangler.staging.jsonc --local --persist-to artifacts/d1-staging-preflight
+python3 test/staging_preflight.py --remote-check   # READ-ONLY D1 list, exact UUID + name
+```
+
+Review the staging dry-run bundle for absence of `/v1/local-write/rotate`, `local_key_versions`, and `local_key_audit`, verify the staging DB identity and the account, and inspect the local migration list: exactly `0001_feed.sql`, `0002_feed_counts.sql` pending on a fresh local store. The preflight rejects changed default/local configs or feed entrypoint, extra/changed files in either migration directory, staging SQL not byte-for-byte equal to its pinned source, an unexpected account environment variable, a Wrangler generated-config redirect, routes, preview URLs, a changed staging target, and a staging bundle containing local-write. It does not prove an account's billing plan or that a remote DB is empty. If any check differs, stop for review. The local list writes only ignored local state. Never substitute a different DB, `--preview`, a production route, or an implicit config. Check the Cloudflare account plan is Workers Free and monitor D1 rows read/written/storage in the Cloudflare dashboard before and after any approved operation; CLI/dashboard queries and DDL count toward usage. Free allowance currently includes 5M rows read/day, 100K written/day, 5 GB total storage (see pricing link below); limits may change and other databases share the allowance.
+
+**Not executed in this change.** After separate approval, repeat `python3 test/staging_preflight.py --remote-check` immediately before the following explicit remote commands, with no intervening config/migration changes; inspect the remote pending list and stop if it does not show exactly the two reviewed filenames or if the DB is not empty. The preflight is not an atomic lock against changes after it runs. Run interactively (do not bypass the confirmation):
+
+```sh
+./node_modules/.bin/wrangler d1 migrations list DB --config wrangler.staging.jsonc --remote
+./node_modules/.bin/wrangler d1 execute DB --config wrangler.staging.jsonc --remote --command "SELECT name, type FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY name"  # read-only; inspect unexpected objects
+./node_modules/.bin/wrangler d1 migrations apply DB --config wrangler.staging.jsonc --remote
+./node_modules/.bin/wrangler d1 migrations list DB --config wrangler.staging.jsonc --remote
+```
+
+Wrangler applies unapplied migrations and captures a backup; a failed migration rolls back **that migration**, while earlier successful migrations remain. There is no safe automatic down migration here: do not run a destructive restore/delete without a separate reviewed plan. Time Travel may restore a whole DB to a prior bookmark within its retention window, overwriting subsequent changes; do not treat it as a per-migration undo. No remote SQL/import/deploy is authorized by this procedure. Official references: [Wrangler configuration](https://developers.cloudflare.com/workers/wrangler/configuration/), [D1 migration commands](https://developers.cloudflare.com/d1/wrangler-commands/#d1-migrations-apply), [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/), [Time Travel](https://developers.cloudflare.com/d1/reference/time-travel/).
+
 ## Release gates / deferrals
 
-No staging or production binding, DNS, route, Next rewrite, migration/import of real rows, R2, production writes, vote/follow toggles or rate buckets, authenticated agent key lookup, comment/upvote **write routes**, rate limiting, full Next query/cache parity, trusted proxy/IP policy, or live schema parity is implemented. Before any staging deployment, owner must choose and verify Cloudflare account, unique staging Worker/D1 IDs, secret handling, allowed caller/origin topology, budget, and observability; replace the fake UUID only in a separately reviewed staging configuration. Private bearer authentication alone does not make an Internet-exposed Worker unreachable: deployment needs explicit route/access policy and network controls. Before real callers, reconcile live Supabase schema/data/privacy semantics, exact response/status behavior, vote/comment paths, client inventory, and independent security review. Do not use the existing `clawplex-community` D1 or `abc-table` Worker.
+No deployed staging or production Worker binding, DNS, route, Next rewrite, migration/import of real rows, R2, production writes, vote/follow toggles or rate buckets, authenticated agent key lookup, comment/upvote **write routes**, rate limiting, full Next query/cache parity, trusted proxy/IP policy, or live schema parity is implemented. Before any staging deployment, owner must verify secret handling, allowed caller/origin topology, budget, and observability; do not modify the default fake UUID. Private bearer authentication alone does not make an Internet-exposed Worker unreachable: deployment needs explicit route/access policy and network controls. Before real callers, reconcile live Supabase schema/data/privacy semantics, exact response/status behavior, vote/comment paths, client inventory, and independent security review. Do not use the existing `clawplex-community` D1 or `abc-table` Worker.
