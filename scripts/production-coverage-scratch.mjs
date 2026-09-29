@@ -60,8 +60,8 @@ try {
     execFileSync("pnpm", ["--version"], { encoding: "utf8" })
       .trim()
       .split(".")[0],
-    "9",
-    "pnpm 9 required",
+    "10",
+    "pnpm 10 required",
   );
   assert.equal(
     git("status", "--porcelain", "--untracked-files=no"),
