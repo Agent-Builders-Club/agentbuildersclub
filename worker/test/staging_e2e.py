@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ART = ROOT / 'artifacts'
 WRANGLER = ROOT / 'node_modules/.bin/wrangler'
 CONFIG = 'wrangler.staging.jsonc'
-NAMES = ['0001_feed.sql', '0002_feed_counts.sql']
+NAMES = ['0001_feed.sql', '0002_feed_counts.sql', '0003_public_skills.sql']
 
 
 def cmd(*args, success=True):
@@ -31,6 +31,8 @@ def db(sql, persist):
 
 
 def main():
+    artifact = ART / 'staging-e2e.json'
+    artifact.unlink(missing_ok=True)
     checks = []
     def check(value, label):
         assert value, label
@@ -43,13 +45,13 @@ def main():
     fresh = ART / 'staging-fresh'
     args = ('--config', CONFIG, '--local', '--persist-to', str(fresh))
     listing = cmd('d1', 'migrations', 'list', 'DB', *args)
-    check(all(name in listing for name in NAMES) and '0002_local_key_cas.sql' not in listing and '0003_feed_counts.sql' not in listing, 'fresh pending list contains only staging feed chain')
+    check(all(name in listing for name in NAMES) and '0002_local_key_cas.sql' not in listing and '0003_feed_counts.sql' not in listing, 'fresh pending list contains staging read chain, no CAS')
     applied = cmd('d1', 'migrations', 'apply', 'DB', *args)
     check(all(name in applied for name in NAMES) and 'local_key' not in applied, 'fresh staging chain applied')
     check('No migrations to apply' in cmd('d1', 'migrations', 'list', 'DB', *args), 'fresh no pending migrations')
     objects = db("SELECT name FROM sqlite_master WHERE type IN ('table','trigger') ORDER BY name", fresh)
     names = {r['name'] for r in objects}
-    check({'agents', 'posts', 'comments', 'upvotes'}.issubset(names) and not any('local_key' in n for n in names), 'fresh schema has feed but no local key table or trigger')
+    check({'agents', 'posts', 'comments', 'upvotes', 'skills'}.issubset(names) and not any('local_key' in n for n in names), 'fresh schema has feed and skills but no local key table or trigger')
     legacy = ART / 'staging-legacy'
     legacy_dir = ART / 'staging-legacy-migrations'
     legacy_config = ART / 'staging-legacy-config.json'
@@ -61,28 +63,49 @@ def main():
     try:
         cmd('d1', 'migrations', 'apply', 'DB', '--config', str(legacy_config), '--local', '--persist-to', str(legacy))
         db("INSERT INTO agents(id,name,owner,created_at) VALUES ('a','Alpha','Owner','2026-01-01T00:00:00.000Z'); INSERT INTO posts(id,agent_id,content,created_at) VALUES ('p','a','Legacy','2026-01-01T00:00:00.000Z')", legacy)
-        # The legacy DB already knows 0001; only staging 0002 should be applied.
+        # The legacy DB already knows 0001; staging 0002 and 0003 follow.
         upgrade = cmd('d1', 'migrations', 'apply', 'DB', '--config', CONFIG, '--local', '--persist-to', str(legacy))
-        check('0002_feed_counts.sql' in upgrade and '0001_feed.sql' not in upgrade, 'legacy feed-only DB applies only counts migration')
+        check('0002_feed_counts.sql' in upgrade and '0003_public_skills.sql' in upgrade and '0001_feed.sql' not in upgrade, 'legacy feed-only DB applies counts and skills')
         check(db('SELECT id FROM posts', legacy) == [{'id': 'p'}] and db('SELECT count(*) AS n FROM comments', legacy) == [{'n': 0}], 'legacy row preserved and counts created')
         check('No migrations to apply' in cmd('d1', 'migrations', 'list', 'DB', '--config', CONFIG, '--local', '--persist-to', str(legacy)), 'legacy no pending migrations')
+        # Simulate the already-applied staging feed chain: the next upgrade must be skills alone.
+        feed_dir = ART / 'staging-feed-migrations'
+        feed_config = ART / 'staging-feed-config.json'
+        feed_dir.mkdir(exist_ok=True)
+        for name in NAMES[:2]:
+            shutil.copy2(ROOT / 'migrations.staging' / name, feed_dir / name)
+        config['d1_databases'][0]['migrations_dir'] = str(feed_dir)
+        feed_config.write_text(json.dumps(config))
+        upgraded = ART / 'staging-feed-upgrade'
+        shutil.rmtree(upgraded, ignore_errors=True)
+        try:
+            cmd('d1', 'migrations', 'apply', 'DB', '--config', str(feed_config), '--local', '--persist-to', str(upgraded))
+            db("INSERT INTO agents(id,name,owner,created_at) VALUES ('kept','Keep','Owner','2026-01-01T00:00:00.000Z'); INSERT INTO posts(id,agent_id,content,created_at) VALUES ('kept-post','kept','Pre-upgrade','2026-01-01T00:00:00.000Z')", upgraded)
+            only_skills = cmd('d1', 'migrations', 'apply', 'DB', '--config', CONFIG, '--local', '--persist-to', str(upgraded))
+            check('0003_public_skills.sql' in only_skills and '0002_feed_counts.sql' not in only_skills and '0001_feed.sql' not in only_skills, 'applied feed chain upgrades with skills alone')
+            check(db("SELECT id FROM posts WHERE id='kept-post'", upgraded) == [{'id': 'kept-post'}] and db('SELECT count(*) AS n FROM skills', upgraded) == [{'n': 0}], 'feed row preserved and skills table starts empty')
+            check('No migrations to apply' in cmd('d1', 'migrations', 'list', 'DB', '--config', CONFIG, '--local', '--persist-to', str(upgraded)), 'feed upgrade has no pending migrations')
+        finally:
+            feed_config.unlink(missing_ok=True)
+            shutil.rmtree(feed_dir, ignore_errors=True)
     finally:
         legacy_config.unlink(missing_ok=True)
         shutil.rmtree(legacy_dir, ignore_errors=True)
-    # A later failed migration must not leave partial DDL or erase earlier feed rows.
+    # A failed migration after skills must roll back its own DDL without erasing the feed or skills schema.
     rollback = ART / 'staging-rollback'
     rollback_dir = ART / 'staging-rollback-migrations'
     rollback_config = ART / 'staging-rollback-config.json'
     rollback_dir.mkdir(exist_ok=True)
     for name in NAMES:
         shutil.copy2(ROOT / 'migrations.staging' / name, rollback_dir / name)
-    (rollback_dir / '0003_failure.sql').write_text('CREATE TABLE should_rollback (id TEXT);\nINSERT INTO missing_table VALUES (1);\n')
+    (rollback_dir / '0004_failure.sql').write_text('CREATE TABLE should_rollback (id TEXT);\nINSERT INTO missing_table VALUES (1);\n')
     config['d1_databases'][0]['migrations_dir'] = str(rollback_dir)
     rollback_config.write_text(json.dumps(config))
     try:
-        check('missing_table' in cmd('d1', 'migrations', 'apply', 'DB', '--config', str(rollback_config), '--local', '--persist-to', str(rollback), success=False), 'failed third migration rejects invalid SQL')
+        check('missing_table' in cmd('d1', 'migrations', 'apply', 'DB', '--config', str(rollback_config), '--local', '--persist-to', str(rollback), success=False), 'failed fourth migration rejects invalid SQL')
         check(db("SELECT name FROM sqlite_master WHERE name = 'should_rollback'", rollback) == [], 'failed migration DDL rolled back')
-        check({'agents', 'posts', 'comments', 'upvotes'}.issubset({r['name'] for r in db("SELECT name FROM sqlite_master WHERE type='table'", rollback)}), 'earlier successful feed migrations retained')
+        check({'agents', 'posts', 'comments', 'upvotes', 'skills'}.issubset({r['name'] for r in db("SELECT name FROM sqlite_master WHERE type='table'", rollback)}), 'earlier feed and skills migrations retained')
+        check([r['name'] for r in db('SELECT name FROM d1_migrations ORDER BY id', rollback)] == NAMES, 'failed migration absent from durable ledger')
     finally:
         rollback_config.unlink(missing_ok=True)
         shutil.rmtree(rollback_dir, ignore_errors=True)
@@ -91,6 +114,7 @@ def main():
     if varsfile.exists():
         raise RuntimeError('Existing .dev.vars must not be overwritten')
     cmd('d1', 'execute', 'DB', *args, '--file', str(ROOT / 'test/fixture.sql'))
+    cmd('d1', 'execute', 'DB', *args, '--file', str(ROOT / 'test/skills-fixture.sql'))
     with socket.socket() as sock:
         sock.bind(('127.0.0.1', 0))
         port = sock.getsockname()[1]
@@ -120,13 +144,17 @@ def main():
         check(feed[0]['upvote_count'] == 2 and feed[0]['comment_count'] == 1, 'staging HTTP feed counts')
         check(request('/v1/feed', authorized=False)[0] == 401, 'staging feed requires bearer')
         check(request('/v1/local-write/rotate', 'POST') == (404, {'error': 'Not found'}), 'staging write route absent even with gate enabled')
+        check(request('/v1/skills', authorized=False) == (401, {'error': 'Unauthorized'}), 'staging skills require bearer')
+        status, skills = request('/v1/skills')
+        check(status == 200 and [s['id'] for s in skills] == ['beta', 'alpha', 'zeta'] and skills[1]['submitter_name'] == 'Alice', 'staging HTTP skills approved unflagged filter and ordering')
+        check(request('/v1/skills/alpha/export')[1]['format'] == 'clawpack-v1', 'staging HTTP skills export')
+        check(request('/v1/skills/pending/export') == (404, {'error': 'Skill not found'}) and request('/v1/skills/flagged/export') == (404, {'error': 'Skill not found'}), 'staging export excludes pending and flagged')
     finally:
         if server is not None:
             server.terminate()
             try: server.wait(timeout=5)
             except subprocess.TimeoutExpired: server.kill(); server.wait()
         varsfile.unlink(missing_ok=True)
-    artifact = ART / 'staging-e2e.json'
     artifact.write_text(json.dumps({'checks': checks, 'staging_migrations': NAMES, 'remote_operations': False}, indent=2) + '\n')
     print(f'PASS {len(checks)} staging E2E checks; {artifact}')
 
