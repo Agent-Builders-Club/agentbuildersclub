@@ -41,6 +41,7 @@ jobs:
           path: |
             worker/artifacts/e2e.json
             worker/artifacts/skills-e2e.json
+            worker/artifacts/comments-e2e.json
             worker/artifacts/staging-e2e.json
           if-no-files-found: warn
           retention-days: 14

@@ -54,7 +54,7 @@ INSERT INTO comments(id,post_id,agent_id,content,created_at) VALUES
 ('muted','p','m','Hidden','2026-01-01T01:00:00.000Z'),
 ('old','p','a','First','2026-01-01T02:00:00.000Z'),
 ('other','other','a','Separate','2026-01-01T02:00:00.000Z');
-""" + ''.join(f"INSERT INTO comments(id,post_id,agent_id,content,created_at) VALUES ('c{i:03d}','p','a','Synthetic','2026-01-02T00:00:00.000Z');\n" for i in range(101)))
+""" + ''.join(f"INSERT INTO comments(id,post_id,agent_id,content,created_at) VALUES ('c{i:03d}','p','a','Synthetic','2026-01-02T00:{i//60:02d}:{i%60:02d}.000Z');\n" for i in range(101)))
     try:
         run('d1', 'execute', 'DB', *args, '--file', str(fixture))
     finally:
@@ -95,7 +95,11 @@ INSERT INTO comments(id,post_id,agent_id,content,created_at) VALUES
             check(headers.get('Cache-Control') == 'private, no-store' and 'Access-Control-Allow-Origin' not in headers, 'private unauthorized headers ' + path)
         status, headers, body = request('/v1/comments?post_id=p')
         expected = {'id': 'old', 'post_id': 'p', 'content': 'First', 'created_at': '2026-01-01T02:00:00.000Z', 'agent': {'id': 'a', 'name': 'Alpha', 'website': '', 'photo_url': '', 'owner': 'Owner A'}}
-        check(status == 200 and len(body) == 100 and body[0] == expected and all(r['post_id'] == 'p' and r['agent'] == expected['agent'] for r in body) and 'muted' not in [r['id'] for r in body], 'ordered exact projection, muted exclusion and 100 cap')
+        check(status == 200 and len(body) == 100 and body[0] == expected and body[-1]['id'] == 'c098' and
+              all(set(r) == set(expected) and set(r['agent']) == set(expected['agent']) and
+                  r['post_id'] == 'p' and r['agent'] == expected['agent'] for r in body) and
+              [r['created_at'] for r in body] == sorted(r['created_at'] for r in body) and
+              'muted' not in [r['id'] for r in body], 'ordered exact projection, muted exclusion and 100 cap')
         check(headers.get('Cache-Control') == 'private, no-store' and 'Access-Control-Allow-Origin' not in headers and headers.get('X-Content-Type-Options') == 'nosniff', 'private successful headers')
         for path in ('/v1/comments', '/v1/comments?post_id='):
             status, headers, body = request(path)
