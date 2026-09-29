@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 ACCOUNT = "52fd7f274b96876a4085c530a53b759c"
@@ -19,6 +20,10 @@ HASHES = {
     "migrations/0002_local_key_cas.sql": "bbdae68f6484c9c0f5551b5504ecf865ba01c50bc53c250745cd804ca65f5cfd",
     "migrations/0003_feed_counts.sql": "34f8ef89db47bec48a690856b7f645c1759d98f0c2c52dc56b024871c6f84c0d",
 }
+STAGING_SQL = {
+    "0001_feed.sql": ("migrations/0001_feed.sql", HASHES["migrations/0001_feed.sql"]),
+    "0002_feed_counts.sql": ("migrations/0003_feed_counts.sql", HASHES["migrations/0003_feed_counts.sql"]),
+}
 EXPECTED = {
     "$schema": "./node_modules/wrangler/config-schema.json",
     "name": "abc-feed-staging-20260929",
@@ -29,7 +34,7 @@ EXPECTED = {
     "preview_urls": False,
     "send_metrics": False,
     "d1_databases": [{"binding": "DB", "database_name": DB_NAME,
-                      "database_id": DB_ID, "migrations_dir": "migrations"}],
+                      "database_id": DB_ID, "migrations_dir": "migrations.staging"}],
 }
 
 
@@ -43,13 +48,32 @@ def check_local():
     require(not (ROOT / ".wrangler/deploy/config.json").exists(), "generated Wrangler redirect present")
     require(os.environ.get("CLOUDFLARE_ACCOUNT_ID", ACCOUNT) == ACCOUNT, "account environment mismatch")
     require(json.loads((ROOT / CONFIG).read_text()) == EXPECTED, "staging config differs from reviewed target")
-    require(sorted(p.name for p in (ROOT / "migrations").glob("*.sql")) ==
-            sorted(Path(p).name for p in HASHES if p.startswith("migrations/")), "migration set changed")
+    require({p.name for p in (ROOT / "migrations").iterdir()} ==
+            {"0001_feed.sql", "0002_local_key_cas.sql", "0003_feed_counts.sql"}, "local migration set changed")
+    staging = ROOT / "migrations.staging"
+    require(staging.is_dir() and {p.name for p in staging.iterdir()} == set(STAGING_SQL),
+            "staging migration set changed (including non-SQL files)")
     for path, digest in HASHES.items():
         require(hashlib.sha256((ROOT / path).read_bytes()).hexdigest() == digest,
                 f"reviewed file changed: {path}")
+    for name, (source, digest) in STAGING_SQL.items():
+        candidate = staging / name
+        require(candidate.is_file() and not candidate.is_symlink() and
+                hashlib.sha256(candidate.read_bytes()).hexdigest() == digest and
+                candidate.read_bytes() == (ROOT / source).read_bytes(),
+                f"staging SQL differs from reviewed source: {name}")
     require("local-write" not in (ROOT / "src/index.ts").read_text(), "default entrypoint imports local write")
-    print("PASS: staging target, account, entrypoint, default/local configs and three migration hashes")
+    # Bundle the actual staging config and inspect its output, not just its main path.
+    (ROOT / "artifacts").mkdir(exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="staging-preflight-", dir=ROOT / "artifacts") as out:
+        subprocess.run([str(ROOT / "node_modules/.bin/wrangler"), "deploy", "--config", CONFIG,
+                        "--dry-run", "--outdir", out], cwd=ROOT, check=True,
+                       capture_output=True, text=True, timeout=120)
+        bundle = "\n".join(p.read_text() for p in Path(out).rglob("*.js"))
+        require(bool(bundle) and "/v1/feed" in bundle and
+                not any(marker in bundle for marker in ("/v1/local-write/rotate", "local_key_versions", "local_key_audit")),
+                "staging bundle contains local-write or lacks feed")
+    print("PASS: staging target, account, source-matched feed-only SQL, exact sets and read-only bundle")
 
 
 def check_remote():

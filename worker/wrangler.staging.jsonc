@@ -11,6 +11,6 @@
     "binding": "DB",
     "database_name": "abc-staging-20260929",
     "database_id": "58520610-7890-4fbe-92ac-a5e987148e83",
-    "migrations_dir": "migrations"
+    "migrations_dir": "migrations.staging"
   }]
 }
