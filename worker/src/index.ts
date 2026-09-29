@@ -1,4 +1,5 @@
 import { publicSkills } from './public-skills';
+import { publicComments } from './public-comments';
 
 // Narrow structural D1 contract avoids loading Worker globals into the Next tsconfig.
 interface FeedDatabase {
@@ -45,6 +46,8 @@ const handler = {
     // Authenticate before route, method, query, or database inspection.
     if (!await authorized(request, env.INTERNAL_API_TOKEN)) return json({ error: 'Unauthorized' }, 401);
     const url = new URL(request.url);
+    const comments = await publicComments(request, env, url);
+    if (comments) return comments;
     const skills = await publicSkills(request, env, url.pathname);
     if (skills) return skills;
     if (url.pathname !== '/v1/feed') return json({ error: 'Not found' }, 404);

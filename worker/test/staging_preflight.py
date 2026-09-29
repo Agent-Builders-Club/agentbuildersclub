@@ -13,7 +13,8 @@ DB_ID = "58520610-7890-4fbe-92ac-a5e987148e83"
 DB_NAME = "abc-staging-20260929"
 CONFIG = "wrangler.staging.jsonc"
 HASHES = {
-    "src/index.ts": "a29f5fecb7e1c1ad29d432e46e9b0feb6704670be41f77addc353fb19b5dfce8",
+    "src/index.ts": "68cb9e7f208e4bad87b4dbbea1dfb95b8b800466ccb2780faf48960d9fb68c3c",
+    "src/public-comments.ts": "f85106c7e6d4c17dc1317e36bd83083c8113fcdb54fb8839ab18890fb66061c9",
     "src/public-skills.ts": "fd99220f28f81e4a5719f4eef8feae5b035f57b89576e6caa536caa39e82f1d1",
     "wrangler.jsonc": "abed77f8609f446148f7488f56b7aa168ee5161ee62ae273992dc947f5be74bf",
     "wrangler.local.jsonc": "3e9c802dd4a672c24113e1641b6cc94e3f63f9d7eab2f6dd16d579f04c0af6c0",
@@ -74,8 +75,9 @@ def check_local():
                        capture_output=True, text=True, timeout=120)
         bundle = "\n".join(p.read_text() for p in Path(out).rglob("*.js"))
         require(bool(bundle) and "/v1/feed" in bundle and "/v1/skills" in bundle and
+                "/v1/comments" in bundle and
                 not any(marker in bundle for marker in ("/v1/local-write/rotate", "local_key_versions", "local_key_audit")),
-                "staging bundle contains local-write or lacks feed/skills")
+                "staging bundle contains local-write or lacks feed/skills/comments")
     print("PASS: staging target, account, source-matched feed+skills SQL, exact sets and read-only bundle")
 
 

@@ -39,6 +39,8 @@ def main():
         checks.append(label)
     preflight = subprocess.run(['python3', 'test/staging_preflight.py'], cwd=ROOT, capture_output=True, text=True)
     check(preflight.returncode == 0, 'staging preflight: ' + preflight.stderr)
+    comments = subprocess.run(['python3', 'test/comments-e2e.py'], cwd=ROOT, capture_output=True, text=True, timeout=240)
+    check(comments.returncode == 0 and (ART / 'comments-e2e.json').exists(), 'comments HTTP+D1 suite: ' + comments.stderr)
     ART.mkdir(exist_ok=True)
     for label in ('staging-fresh', 'staging-legacy', 'staging-rollback'):
         shutil.rmtree(ART / label, ignore_errors=True)
@@ -142,6 +144,9 @@ def main():
         else:
             raise RuntimeError('staging feed not ready')
         check(feed[0]['upvote_count'] == 2 and feed[0]['comment_count'] == 1, 'staging HTTP feed counts')
+        check(request('/v1/comments?post_id=z') == (200, [{'id': 'c1', 'post_id': 'z', 'content': 'Visible', 'created_at': '2026-01-04T00:00:00.000Z', 'agent': {'id': 'a', 'name': 'Alpha', 'website': 'https://alpha.test', 'photo_url': '', 'owner': 'Owner A'}}]), 'staging HTTP comments excludes muted author')
+        check(request('/v1/comments?post_id=z', authorized=False) == (401, {'error': 'Unauthorized'}), 'staging comments require bearer')
+        check(request('/v1/comments', 'POST') == (405, {'error': 'Method not allowed'}), 'staging comments read only')
         check(request('/v1/feed', authorized=False)[0] == 401, 'staging feed requires bearer')
         check(request('/v1/local-write/rotate', 'POST') == (404, {'error': 'Not found'}), 'staging write route absent even with gate enabled')
         check(request('/v1/skills', authorized=False) == (401, {'error': 'Unauthorized'}), 'staging skills require bearer')

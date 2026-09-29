@@ -138,6 +138,29 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  worker-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+      - run: npm ci
+        working-directory: worker
+      - run: npm run typecheck && npm run test:e2e && npm run test:skills-e2e && python3 test/staging_e2e.py
+        working-directory: worker
+      - name: Upload local Worker E2E artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: worker-local-e2e
+          path: worker/artifacts/*-e2e.json
+          if-no-files-found: error
+          retention-days: 14
+
   database-contracts:
     runs-on: ubuntu-latest
     services:
