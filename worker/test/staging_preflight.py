@@ -13,16 +13,19 @@ DB_ID = "58520610-7890-4fbe-92ac-a5e987148e83"
 DB_NAME = "abc-staging-20260929"
 CONFIG = "wrangler.staging.jsonc"
 HASHES = {
-    "src/index.ts": "ea52fab1894df7fc4ffc3f1abfa77aa9398be1f52b29420bff46ce370acd9bf5",
+    "src/index.ts": "a29f5fecb7e1c1ad29d432e46e9b0feb6704670be41f77addc353fb19b5dfce8",
+    "src/public-skills.ts": "fd99220f28f81e4a5719f4eef8feae5b035f57b89576e6caa536caa39e82f1d1",
     "wrangler.jsonc": "abed77f8609f446148f7488f56b7aa168ee5161ee62ae273992dc947f5be74bf",
     "wrangler.local.jsonc": "3e9c802dd4a672c24113e1641b6cc94e3f63f9d7eab2f6dd16d579f04c0af6c0",
     "migrations/0001_feed.sql": "99272ee85b75a02e840cc0674d2e672d908397bd776a5daf826ea3947014212e",
     "migrations/0002_local_key_cas.sql": "bbdae68f6484c9c0f5551b5504ecf865ba01c50bc53c250745cd804ca65f5cfd",
     "migrations/0003_feed_counts.sql": "34f8ef89db47bec48a690856b7f645c1759d98f0c2c52dc56b024871c6f84c0d",
+    "migrations/0004_public_skills.sql": "28076bca2ba415f97f9baf495c8d03ecce0c53f90a77ade3e76d28162b96cfe5",
 }
 STAGING_SQL = {
     "0001_feed.sql": ("migrations/0001_feed.sql", HASHES["migrations/0001_feed.sql"]),
     "0002_feed_counts.sql": ("migrations/0003_feed_counts.sql", HASHES["migrations/0003_feed_counts.sql"]),
+    "0003_public_skills.sql": ("migrations/0004_public_skills.sql", HASHES["migrations/0004_public_skills.sql"]),
 }
 EXPECTED = {
     "$schema": "./node_modules/wrangler/config-schema.json",
@@ -49,7 +52,7 @@ def check_local():
     require(os.environ.get("CLOUDFLARE_ACCOUNT_ID", ACCOUNT) == ACCOUNT, "account environment mismatch")
     require(json.loads((ROOT / CONFIG).read_text()) == EXPECTED, "staging config differs from reviewed target")
     require({p.name for p in (ROOT / "migrations").iterdir()} ==
-            {"0001_feed.sql", "0002_local_key_cas.sql", "0003_feed_counts.sql"}, "local migration set changed")
+            {"0001_feed.sql", "0002_local_key_cas.sql", "0003_feed_counts.sql", "0004_public_skills.sql"}, "local migration set changed")
     staging = ROOT / "migrations.staging"
     require(staging.is_dir() and {p.name for p in staging.iterdir()} == set(STAGING_SQL),
             "staging migration set changed (including non-SQL files)")
@@ -70,10 +73,10 @@ def check_local():
                         "--dry-run", "--outdir", out], cwd=ROOT, check=True,
                        capture_output=True, text=True, timeout=120)
         bundle = "\n".join(p.read_text() for p in Path(out).rglob("*.js"))
-        require(bool(bundle) and "/v1/feed" in bundle and
+        require(bool(bundle) and "/v1/feed" in bundle and "/v1/skills" in bundle and
                 not any(marker in bundle for marker in ("/v1/local-write/rotate", "local_key_versions", "local_key_audit")),
-                "staging bundle contains local-write or lacks feed")
-    print("PASS: staging target, account, source-matched feed-only SQL, exact sets and read-only bundle")
+                "staging bundle contains local-write or lacks feed/skills")
+    print("PASS: staging target, account, source-matched feed+skills SQL, exact sets and read-only bundle")
 
 
 def check_remote():

@@ -22,6 +22,7 @@ From `worker/`:
 npm ci
 npm run typecheck
 npm run test:e2e
+npm run test:skills-e2e
 python3 test/staging_e2e.py
 npm run dry-run
 ```
@@ -30,7 +31,7 @@ The E2E first applies `0001`/`0002` in a separate legacy local D1 with a tempora
 
 ## Isolated staging D1 (not yet applied)
 
-`wrangler.staging.jsonc` pins account `52fd7f274b96876a4085c530a53b759c`, D1 `abc-staging-20260929` / `58520610-7890-4fbe-92ac-a5e987148e83`, and a unique Worker name. It uses only `src/index.ts` (never `src/local-write.ts`), disables workers.dev and preview URLs, and has no route/zone, public caller, secret value, or deployment in this change. Do not use `wrangler.local.jsonc` or the implicit default config for staging. The D1 has been reported newly created and empty; neither the name/UUID check nor a migration list proves that it is empty, so inspect the remote schema before applying. The versioned `migrations.staging/` chain contains **only** feed `0001` and counts `0002`; the default/local `migrations/0002_local_key_cas.sql` is a test-only CAS contract and must never enter remote staging. This is synthetic read-model schema, **not** production data/schema. After the public-skills PR merges, its migration must be added separately with a new staging migration and reviewed preflight hashes; do not include it here.
+`wrangler.staging.jsonc` pins account `52fd7f274b96876a4085c530a53b759c`, D1 `abc-staging-20260929` / `58520610-7890-4fbe-92ac-a5e987148e83`, and a unique Worker name. It uses only `src/index.ts` (never `src/local-write.ts`), disables workers.dev and preview URLs, and has no route/zone, public caller, secret value, or deployment in this change. Do not use `wrangler.local.jsonc` or the implicit default config for staging. The D1's current remote schema and applied migrations are **not verified here**; neither the name/UUID check nor a migration list proves it is empty. The versioned `migrations.staging/` chain contains **only** feed `0001`, counts `0002`, and skills `0003` (byte-identical to default/local `0004_public_skills.sql`); the default/local `migrations/0002_local_key_cas.sql` is a test-only CAS contract and must never enter remote staging. This is synthetic read-model schema, **not** production data/schema. No remote migration or deployment is authorized by this PR.
 
 Before any **separately approved** remote migration, from `worker/` with reviewed credentials in the intended Cloudflare account:
 
@@ -39,6 +40,7 @@ npm ci
 python3 test/staging_preflight.py
 npm run typecheck
 npm run test:e2e
+npm run test:skills-e2e
 python3 test/staging_e2e.py
 npm run dry-run
 ./node_modules/.bin/wrangler deploy --config wrangler.staging.jsonc --dry-run --outdir artifacts/staging-dry-run
@@ -46,9 +48,9 @@ npm run dry-run
 python3 test/staging_preflight.py --remote-check   # READ-ONLY D1 list, exact UUID + name
 ```
 
-Review the staging dry-run bundle for absence of `/v1/local-write/rotate`, `local_key_versions`, and `local_key_audit`, verify the staging DB identity and the account, and inspect the local migration list: exactly `0001_feed.sql`, `0002_feed_counts.sql` pending on a fresh local store. The preflight rejects changed default/local configs or feed entrypoint, extra/changed files in either migration directory, staging SQL not byte-for-byte equal to its pinned source, an unexpected account environment variable, a Wrangler generated-config redirect, routes, preview URLs, a changed staging target, and a staging bundle containing local-write. It does not prove an account's billing plan or that a remote DB is empty. If any check differs, stop for review. The local list writes only ignored local state. Never substitute a different DB, `--preview`, a production route, or an implicit config. Check the Cloudflare account plan is Workers Free and monitor D1 rows read/written/storage in the Cloudflare dashboard before and after any approved operation; CLI/dashboard queries and DDL count toward usage. Free allowance currently includes 5M rows read/day, 100K written/day, 5 GB total storage (see pricing link below); limits may change and other databases share the allowance.
+Review the staging dry-run bundle for absence of `/v1/local-write/rotate`, `local_key_versions`, and `local_key_audit`, verify the staging DB identity and the account, and inspect the local migration list: exactly `0001_feed.sql`, `0002_feed_counts.sql`, `0003_public_skills.sql` pending on a fresh local store. The staging E2E also proves applying only skills after both feed migrations are already applied preserves feed rows and exposes private skills list/export over real local HTTP. The preflight rejects changed default/local configs or entrypoint, extra/changed files in either migration directory, staging SQL not byte-for-byte equal to its pinned source, an unexpected account environment variable, a Wrangler generated-config redirect, routes, preview URLs, a changed staging target, and a staging bundle containing local-write. It does not prove an account's billing plan or that a remote DB is empty. If any check differs, stop for review. The local list writes only ignored local state. Never substitute a different DB, `--preview`, a production route, or an implicit config. Check the Cloudflare account plan is Workers Free and monitor D1 rows read/written/storage in the Cloudflare dashboard before and after any approved operation; CLI/dashboard queries and DDL count toward usage. Free allowance currently includes 5M rows read/day, 100K written/day, 5 GB total storage (see pricing link below); limits may change and other databases share the allowance.
 
-**Not executed in this change.** After separate approval, repeat `python3 test/staging_preflight.py --remote-check` immediately before the following explicit remote commands, with no intervening config/migration changes; inspect the remote pending list and stop if it does not show exactly the two reviewed filenames or if the DB is not empty. The preflight is not an atomic lock against changes after it runs. Run interactively (do not bypass the confirmation):
+**Not executed in this change.** After separate approval, repeat `python3 test/staging_preflight.py --remote-check` immediately before the following explicit remote commands, with no intervening config/migration changes; inspect the remote schema and pending list against the approved baseline: on an empty DB expect exactly all three reviewed filenames; if the two feed migrations were already applied, expect **only** `0003_public_skills.sql` pending and verify their applied records and schema first. Stop on any discrepancy or unexpected objects/rows. The preflight is not an atomic lock against changes after it runs. Run interactively (do not bypass the confirmation):
 
 ```sh
 ./node_modules/.bin/wrangler d1 migrations list DB --config wrangler.staging.jsonc --remote
@@ -58,6 +60,7 @@ Review the staging dry-run bundle for absence of `/v1/local-write/rotate`, `loca
 ```
 
 Wrangler applies unapplied migrations and captures a backup; a failed migration rolls back **that migration**, while earlier successful migrations remain. There is no safe automatic down migration here: do not run a destructive restore/delete without a separate reviewed plan. Time Travel may restore a whole DB to a prior bookmark within its retention window, overwriting subsequent changes; do not treat it as a per-migration undo. No remote SQL/import/deploy is authorized by this procedure. Official references: [Wrangler configuration](https://developers.cloudflare.com/workers/wrangler/configuration/), [D1 migration commands](https://developers.cloudflare.com/d1/wrangler-commands/#d1-migrations-apply), [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/), [Time Travel](https://developers.cloudflare.com/d1/reference/time-travel/).
+
 ## Synthetic public skills read contract
 
 The additive `0004_public_skills.sql` migration creates a narrow `skills` table (JSON text string-array phrases, checked flags/count/date, no agent FK matching repository source). There are **no hosted rows or seed data** in the migration. `GET /v1/skills` and `GET /v1/skills/:id/export` run behind the same internal bearer gate **before route inspection**, with bound SQL filtering `approved = 1 AND flagged = 0`. The list projects the Next handler's array fields, maps `submitted_by` to `submitter_name`, and orders by install count then creation date descending. The export returns the Next handler's `clawpack-v1` JSON, sanitized filename and `Content-Disposition`; pending, flagged and unknown IDs share a 404 body. Other methods are 405; `/api/skills`, submit/moderate and local write are not exposed in the default bundle. All responses remain private/no-store; no CORS. `x-api-key` is unsupported (501). This is a **server-to-Worker synthetic contract**, not a public Worker URL or replacement for Next routes.
