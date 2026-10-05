@@ -101,7 +101,7 @@ jobs:
         run: pnpm run test:coverage
       - name: Upload coverage baseline
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vitest-whole-source-baseline
           path: artifacts/coverage/
@@ -131,7 +131,7 @@ jobs:
           CI: "true"
       - name: Upload E2E artifacts
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-artifacts
           path: artifacts/e2e/
@@ -204,7 +204,7 @@ jobs:
         run: pnpm run test:api-db-e2e
       - name: Upload sanitized API+DB E2E manifest
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: api-db-e2e-manifest
           path: artifacts/api-db-e2e/manifest.json

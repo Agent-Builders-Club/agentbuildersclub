@@ -35,7 +35,7 @@ jobs:
       - run: npm run dry-run
       - name: Upload local-only E2E artifact
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: worker-foundation-e2e
           path: |
