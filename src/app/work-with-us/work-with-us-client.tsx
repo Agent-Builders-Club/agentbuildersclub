@@ -83,14 +83,14 @@ export function WorkWithUsClient() {
             {...stagger(2)}
             className="mt-7 text-base sm:text-lg text-muted leading-relaxed max-w-2xl"
           >
-            Agent Builders Club is where AI agents get made — in public, every week.
-            We&apos;re looking for builders, sponsors, and venue partners who want to be part
-            of the DFW AI scene at its fastest moment.
+            Meet other AI builders in Dallas–Fort Worth. Come to a meetup,
+            share a project, offer a venue, or help support the community.
+            Start with the calendar or tell us how you want to get involved.
           </motion.p>
         </div>
       </section>
 
-      {/* Community proof */}
+      {/* Community purpose */}
       <section className="border-b border-border px-5 md:px-8 py-20 md:py-28">
         <div className="mx-auto max-w-6xl">
           <div className="grid lg:grid-cols-12 gap-10 lg:gap-16 items-start">
@@ -106,21 +106,21 @@ export function WorkWithUsClient() {
                 {...stagger(1)}
                 className="font-display text-4xl sm:text-5xl lg:text-[60px] leading-[1.02] tracking-tight text-text"
               >
-                A working lab,
+                Meet the people
                 <br />
-                not a meetup.
+                behind the projects.
               </motion.h2>
             </div>
             <div className="lg:col-span-7">
               <div className="space-y-4 text-base sm:text-lg text-muted leading-[1.65]">
                 <motion.p {...stagger(2)}>
-                  Every week, builders bring something they&apos;ve shipped — a new agent,
-                  an automation, a workflow — and the room tears it apart. Good ideas
-                  get better. Bad ideas get caught before they cost you a week.
+                  The Node is our meetup for people interested in building with AI.
+                  Bring a project, a question, or something you want to learn.
+                  Check the event listing for the format, location, and RSVP details.
                 </motion.p>
                 <motion.p {...stagger(3)}>
-                  It&apos;s high-density, high-output, and built for people who are actually
-                  building.
+                  Share useful tools, open-source work, and what you learned along
+                  the way. The focus is learning from each other, not sales pitches.
                 </motion.p>
               </div>
               <motion.dl
@@ -128,10 +128,10 @@ export function WorkWithUsClient() {
                 className="mt-9 grid grid-cols-2 lg:grid-cols-4 gap-px overflow-hidden rounded-lg border border-border bg-border"
               >
                 {[
-                  { value: "Weekly", label: "Node events" },
-                  { value: "50+", label: "Builders per Node" },
-                  { value: "4", label: "DFW Venues" },
-                  { value: "2026", label: "Founded" },
+                  { value: "Meet", label: "Other builders" },
+                  { value: "Share", label: "Useful projects" },
+                  { value: "Learn", label: "From each other" },
+                  { value: "DFW", label: "Local community" },
                 ].map((stat) => (
                   <div key={stat.label} className="bg-surface px-4 py-5">
                     <dt className="font-display text-3xl text-accent leading-none">
@@ -156,7 +156,7 @@ export function WorkWithUsClient() {
             className="mb-12 md:mb-16 flex items-baseline justify-between gap-4"
           >
             <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-accent">
-              Ways to Work With Us
+              Ways to Get Involved
             </p>
             <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-dim tabular-nums">
               01 – 04
@@ -164,10 +164,10 @@ export function WorkWithUsClient() {
           </motion.div>
           <div className="border-t border-border">
             {[
-              { num: "01", label: "Builder", title: "Come to the Node", desc: "Every Node is free and open. Bring a build or just show up. The room does the rest." },
-              { num: "02", label: "Sponsor", title: "Reach the builders", desc: "Put your name in front of the most active AI builders in DFW. Tools, APIs, infra — if it solves a builder&apos;s problem, this is where it&apos;s seen." },
-              { num: "03", label: "Venue Partner", title: "Host the Node", desc: "Got a space that fits 30–60 people with good wifi? We bring the builders, you bring the ceiling. DFW venues only." },
-              { num: "04", label: "Agent Developer", title: "Ship to the feed", desc: "Build an agent that actually works. Post it to the community feed. Let the room stress-test it in public." },
+              { num: "01", label: "Attendee", title: "Come to a meetup", desc: "You don't need a finished project to take part. Browse the calendar, read the event details, and RSVP through Luma. Have a question before coming? Ask us.", action: "Ask about attending" },
+              { num: "02", label: "Project Presenter", title: "Show what you're building", desc: "Share an agent, an automation, or a useful open-source tool. Tell us what it does, what you've learned, and what you'd like feedback on so we can discuss a presentation.", action: "Propose a project demo" },
+              { num: "03", label: "Venue Host", title: "Offer a space in DFW", desc: "Have a place where builders can meet? Send the location, capacity, accessibility details, Wi-Fi setup, and available dates. We'll discuss whether the space fits a meetup.", action: "Offer a venue" },
+              { num: "04", label: "Sponsor", title: "Support useful community work", desc: "Help with a venue, refreshments, or practical resources for builders. Tell us what you can contribute. Support should help people learn and share, not turn the meetup into a sales pitch.", action: "Discuss community support" },
             ].map((way, i) => (
               <motion.div
                 key={way.num}
@@ -190,6 +190,12 @@ export function WorkWithUsClient() {
                     <p className="text-[15px] sm:text-base text-muted leading-[1.6] max-w-prose">
                       {way.desc}
                     </p>
+                    <a
+                      href="/contact"
+                      className="mt-5 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-accent underline underline-offset-4 hover:text-accent-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+                    >
+                      {way.action} <span aria-hidden="true">→</span>
+                    </a>
                   </div>
                 </div>
               </motion.div>
@@ -270,18 +276,20 @@ export function WorkWithUsClient() {
             Start Here
           </p>
           <h2 className="font-display text-4xl sm:text-5xl lg:text-[56px] leading-[1.05] tracking-tight text-text">
-            Come to the next Node.
+            Find your way in.
           </h2>
           <p className="mt-5 text-base sm:text-lg text-muted">
-            Every Node is free. Every builder is welcome. The only agenda is shipping something real.
+            Check Luma for upcoming meetups and RSVP details. Use Contact for
+            questions, project demos, venues, and sponsorship. Discord is an
+            optional place to connect between events.
           </p>
           <a
-            href="https://discord.gg/q8kEquTu3z"
+            href="https://luma.com/agentbuildersclub"
             target="_blank"
             rel="noopener noreferrer"
             className="mt-9 inline-flex items-center gap-2 rounded-full bg-accent px-6 py-3.5 text-sm sm:text-base font-medium text-void hover:bg-accent-light transition-colors"
           >
-            Join Discord
+            View the meetup calendar
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
               <path
                 d="M3 7h8m0 0L7.5 3.5M11 7l-3.5 3.5"
@@ -292,6 +300,14 @@ export function WorkWithUsClient() {
               />
             </svg>
           </a>
+          <div className="mt-5 flex flex-wrap justify-center gap-x-6 gap-y-3 text-sm">
+            <a href="/contact" className="inline-flex min-h-11 items-center text-accent underline underline-offset-4 hover:text-accent-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent">
+              Contact the organizers
+            </a>
+            <a href="https://discord.gg/q8kEquTu3z" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-accent underline underline-offset-4 hover:text-accent-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent">
+              Join Discord (optional)
+            </a>
+          </div>
         </motion.div>
       </section>
     </>

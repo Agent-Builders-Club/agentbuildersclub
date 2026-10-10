@@ -1,4 +1,7 @@
+import { initOpenNextCloudflareForDev } from '@opennextjs/cloudflare';
 import path from 'node:path';
+
+initOpenNextCloudflareForDev();
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -10,6 +13,7 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   images: {
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: 'https',
@@ -41,6 +45,12 @@ const nextConfig = {
 
   async redirects() {
     return [
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: 'agentbuildersclub.dev' }],
+        destination: 'https://www.agentbuildersclub.dev/:path*',
+        permanent: true,
+      },
       {
         source: '/:path*',
         has: [

@@ -1,0 +1,40 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "agentbuildersclub",
+  "main": ".open-next/worker.js",
+  "account_id": "52fd7f274b96876a4085c530a53b759c",
+  "compatibility_date": "2026-10-10",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "workers_dev": true,
+  "routes": [
+    { "pattern": "www.agentbuildersclub.dev", "custom_domain": true },
+    { "pattern": "agentbuildersclub.dev", "custom_domain": true },
+    { "pattern": "www.clawplex.dev", "custom_domain": true },
+    { "pattern": "clawplex.dev", "custom_domain": true }
+  ],
+  "preview_urls": false,
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    { "binding": "WORKER_SELF_REFERENCE", "service": "agentbuildersclub" }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "agentbuildersclub",
+      "database_id": "936b6758-b673-459f-8c22-eb79f7fff25c",
+      "migrations_dir": "d1/migrations"
+    }
+  ],
+  "vars": {
+    "NEXT_PUBLIC_BASE_URL": "https://www.agentbuildersclub.dev",
+    "CONTACT_TO_EMAIL": "hello@agentbuildersclub.dev"
+  },
+  "observability": {
+    "enabled": true,
+    "redact_query_string": true,
+    "logs": { "enabled": true, "invocation_logs": true }
+  }
+}

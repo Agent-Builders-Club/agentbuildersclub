@@ -2,58 +2,79 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { siteConfig } from "@/config";
 
 export function Footer() {
   return (
     <footer className="border-t border-border bg-void">
-      {/* Main footer */}
       <div className="mx-auto max-w-7xl px-5 md:px-8 py-14 md:py-16">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-10 md:gap-8">
-          {/* Brand column */}
           <div className="md:col-span-2">
             <Link
               href="/"
               className="inline-flex items-center gap-2.5"
-              aria-label="Agent Builders Club home"
+              aria-label={`${siteConfig.name} home`}
             >
               <Image
                 src="/abc-logo.jpg"
-                alt="Agent Builders Club"
+                alt={siteConfig.name}
                 width={28}
                 height={28}
                 className="object-contain"
               />
               <span className="font-display text-xl tracking-tight text-text">
-                Agent Builders Club
+                {siteConfig.name}
               </span>
             </Link>
             <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.22em] text-accent">
-              Global AI Builder Community
+              Meetups for AI builders
             </p>
             <p className="mt-4 text-[14px] sm:text-[15px] text-muted leading-[1.6] max-w-sm">
-              Born in DFW. Built for the world. A global community for people
-              learning, building, sharing, and shipping AI agents.
+              Born in DFW. Meet other builders, share what you&apos;re working on,
+              and learn together.
             </p>
+            <a
+              href={`mailto:${siteConfig.contactEmail}`}
+              className="mt-4 inline-block text-[14px] text-muted hover:text-text transition-colors break-all"
+            >
+              {siteConfig.contactEmail}
+            </a>
           </div>
 
-          {/* Nav columns */}
-          <div>
+          <nav aria-label="Main footer navigation">
             <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-accent mb-5">
-              Community
+              Get together
+            </p>
+            <ul className="space-y-3">
+              {siteConfig.navigation.map((item) => (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    className="text-[14px] text-muted hover:text-text transition-colors"
+                  >
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+
+          <nav aria-label="Meetups and social links">
+            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-accent mb-5">
+              Stay connected
             </p>
             <ul className="space-y-3">
               {[
-                { href: "/community", label: "Community Feed" },
-                { href: "/community/agents", label: "Agents" },
-                { href: "/community/projects", label: "Projects" },
-                { href: "https://discord.gg/q8kEquTu3z", label: "Discord", external: true },
+                { href: siteConfig.lumaUrl, label: "Meetup calendar" },
+                { href: siteConfig.discordUrl, label: "Discord" },
+                { href: "https://www.linkedin.com/company/agentbuildersclub", label: "LinkedIn" },
+                { href: "https://x.com/agntbuilderclub", label: "X" },
               ].map((item) => (
-                <li key={`${item.href}-${item.label}`}>
+                <li key={item.href}>
                   <a
                     href={item.href}
-                    {...(item.external
-                      ? { target: "_blank", rel: "noopener noreferrer" }
-                      : {})}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="text-[14px] text-muted hover:text-text transition-colors"
                   >
                     {item.label}
@@ -61,64 +82,32 @@ export function Footer() {
                 </li>
               ))}
             </ul>
-          </div>
+          </nav>
 
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-accent mb-5">
-              Events
+          <nav aria-label="Community resources">
+            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted mb-5">
+              Community resources
             </p>
             <ul className="space-y-3">
-              {[
-                { href: "https://luma.com/agentbuildersclub", label: "Node Calendar", external: true },
-                { href: "https://luma.com/agentbuildersclub", label: "Live Events", external: true },
-              ].map((item) => (
-                <li key={`${item.href}-${item.label}`}>
-                  <a
+              {siteConfig.communityNavigation.map((item) => (
+                <li key={item.href}>
+                  <Link
                     href={item.href}
-                    {...(item.external
-                      ? { target: "_blank", rel: "noopener noreferrer" }
-                      : {})}
                     className="text-[14px] text-muted hover:text-text transition-colors"
                   >
                     {item.label}
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>
-          </div>
-
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-accent mb-5">
-              Organization
-            </p>
-            <ul className="space-y-3">
-              {[
-                { href: "/get-involved", label: "Get Involved" },
-                { href: "https://www.linkedin.com/company/agentbuildersclub", label: "LinkedIn", external: true },
-                { href: "https://x.com/agntbuilderclub", label: "X", external: true },
-              ].map((item) => (
-                <li key={`${item.href}-${item.label}`}>
-                  <a
-                    href={item.href}
-                    {...(item.external
-                      ? { target: "_blank", rel: "noopener noreferrer" }
-                      : {})}
-                    className="text-[14px] text-muted hover:text-text transition-colors"
-                  >
-                    {item.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
+          </nav>
         </div>
       </div>
 
-      {/* Bottom bar */}
       <div className="border-t border-border">
         <div className="mx-auto max-w-7xl px-5 md:px-8 py-5 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-[13px] text-dim text-center md:text-left">
-            © {new Date().getFullYear()} Agent Builders Club
+            © {new Date().getFullYear()} {siteConfig.name}
           </p>
           <div className="flex items-center gap-5 text-[13px]">
             <Link

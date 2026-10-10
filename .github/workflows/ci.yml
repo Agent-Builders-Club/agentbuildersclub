@@ -101,7 +101,7 @@ jobs:
         run: pnpm run test:coverage
       - name: Upload coverage baseline
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vitest-whole-source-baseline
           path: artifacts/coverage/
@@ -131,64 +131,19 @@ jobs:
           CI: "true"
       - name: Upload E2E artifacts
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-artifacts
           path: artifacts/e2e/
           if-no-files-found: error
           retention-days: 14
 
-  database-contracts:
+  d1-api-e2e:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_PASSWORD: test-only-password
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
+    timeout-minutes: 15
     env:
-      PGHOST: localhost
-      PGPORT: 5432
-      PGUSER: postgres
-      PGPASSWORD: test-only-password
-      PGDATABASE: postgres
-    steps:
-      - uses: actions/checkout@v7
-      - name: Verify migration replay and authorization contracts
-        run: |
-          psql -v ON_ERROR_STOP=1 -c 'CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role BYPASSRLS; GRANT USAGE ON SCHEMA public TO service_role;'
-          for migration in supabase/migrations/*.sql; do
-            psql -v ON_ERROR_STOP=1 -f "$migration"
-          done
-          psql -v ON_ERROR_STOP=1 -f scripts/test-database.sql
-
-  api-db-e2e:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_PASSWORD: test-only-password
-        ports:
-          - 127.0.0.1:5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      PGHOST: 127.0.0.1
-      PGPORT: "5432"
-      PGUSER: postgres
-      PGPASSWORD: test-only-password
-      PGDATABASE: postgres
+      TMPDIR: ${{ runner.temp }}
+      ABC_E2E_LABEL: ci
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -200,13 +155,29 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
-      - name: Exercise real Next HTTP through disposable PostgREST and PostgreSQL
-        run: pnpm run test:api-db-e2e
-      - name: Upload sanitized API+DB E2E manifest
+      - name: Exercise actual routes over HTTP with real local workerd D1
+        run: pnpm run test:d1-e2e
+      - name: Upload sanitized D1 acceptance results
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: api-db-e2e-manifest
-          path: artifacts/api-db-e2e/manifest.json
+          name: d1-api-e2e
+          path: artifacts/d1-backend/
           if-no-files-found: error
           retention-days: 14
+
+  cloudflare-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build:cloudflare
+      - run: pnpm exec wrangler deploy --dry-run

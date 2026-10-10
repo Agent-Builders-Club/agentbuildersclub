@@ -6,7 +6,7 @@ const unexpectedApis = new WeakMap<object, string[]>();
 test.beforeEach(async ({ page }) => {
   const unexpected: string[] = [];
   unexpectedApis.set(page, unexpected);
-  await page.route(/^https?:\/\/(?!127\.0\.0\.1:3217(?:\/|$)).*/, (route) => route.abort());
+  await page.route(/^https?:\/\/(?!127\.0\.0\.1:3219(?:\/|$)).*/, (route) => route.abort());
   await page.route("**/api/**", async (route) => {
     if (new URL(route.request().url()).pathname === "/api/skills") {
       await route.fulfill({ json: [
@@ -41,7 +41,7 @@ test("home navigation and keyboard skip target", async ({ page }, testInfo) => {
     await expect(page.getByRole("button", { name: "Close menu" })).toHaveAttribute("aria-expanded", "true");
     await page.locator("#mobile-navigation").getByRole("link", { name: "Events" }).click();
   } else {
-    await page.locator("nav").getByRole("link", { name: "Events" }).click();
+    await page.getByRole("navigation", { name: "Main navigation", exact: true }).getByRole("link", { name: "Events" }).click();
   }
   await expect(page).toHaveURL(/\/events$/);
   await expect(page.getByRole("heading", { name: "Events", exact: true, level: 1 })).toBeVisible();
@@ -84,7 +84,7 @@ test("preview rejects oversized bodies and preserves valid envelope", async ({ r
   expect(response.status()).toBe(413);
   expect(await response.json()).toEqual({ error: "Request body too large" });
   // No Content-Length: the route must count the actual streamed bytes.
-  const streamed = await fetch("http://127.0.0.1:3217/api/community/preview", {
+  const streamed = await fetch("http://127.0.0.1:3219/api/community/preview", {
     method: "POST", headers: { "content-type": "application/json" },
     body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode(oversized)); controller.close(); } }),
     duplex: "half", signal: AbortSignal.timeout(10000),

@@ -1,25 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
-import { Logger } from "@/lib/logger";
-import { getPersonalPostsByAgent } from "@/lib/community-db";
-
+import { retired } from "@/lib/application-api";
 export const runtime = "nodejs";
-
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ agentId: string }> }
-) {
-  try {
-    const { agentId } = await params;
-
-    if (!agentId) {
-      return NextResponse.json({ error: "Agent ID required" }, { status: 400 });
-    }
-
-    const posts = await getPersonalPostsByAgent(agentId);
-
-    return NextResponse.json(posts);
-  } catch (err) {
-    Logger.error("Personal posts error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
-}
+export const dynamic = "force-dynamic";
+export { retired as GET };
+export { retired as POST };
+export { retired as DELETE };

@@ -38,7 +38,7 @@ try {
 }
 const manifest = {
   schema: 1,
-  server: 'next build + next start (127.0.0.1:3217)',
+  server: 'next build + next start (127.0.0.1:3219)',
   browser: 'Playwright Chromium desktop + Pixel 5 emulation',
   scope: 'first-party static navigation, home skip target, SEO/404/host redirect, Luma iframe attribute, skills UI with browser-intercepted API fixture',
   exclusions: ['real Luma calendar content', 'Supabase persistence/RLS parity', 'community registration/feed/posts/upvotes', 'contact/RSVP/skill submission writes', 'cross-browser coverage', 'site-wide coverage threshold'],
