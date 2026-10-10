@@ -16,7 +16,7 @@ import { createServer } from 'node:http';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const label = process.env.ABC_E2E_LABEL || 'green';
 if (!/^[a-z0-9-]+$/.test(label)) throw Error('Invalid evidence label');
-const scratch = process.env.TMPDIR || '/home/tyler/.hermes/cache/scratch';
+const scratch = process.env.TMPDIR || resolve(root, '.wrangler', 'e2e-scratch');
 const artifact = resolve(scratch, 'abc-d1-backend-e2e', label);
 mkdirSync(artifact, { recursive: true });
 if (!existsSync(resolve(artifact, 'node_modules'))) symlinkSync(resolve(root, 'node_modules'), resolve(artifact, 'node_modules'), 'dir');
@@ -236,5 +236,8 @@ try {
   if (mf) await mf.dispose();
   const report = { label, boundary: 'real loopback HTTP / production route modules / local workerd D1; SDK-context and notification-only fixture', verdict: process.exitCode ? (records.some(r => r.verdict === 'FAIL') ? 'RED' : 'BLOCKED') : 'GREEN', cases: records };
   writeFileSync(resolve(artifact, 'results.json'), JSON.stringify(report, null, 2));
+  const sanitized = resolve(root, 'artifacts', 'd1-backend', label);
+  mkdirSync(sanitized, { recursive: true });
+  writeFileSync(resolve(sanitized, 'results.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2)); console.log('Artifact:', resolve(artifact, 'results.json'));
 }
