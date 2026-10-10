@@ -142,7 +142,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      TMPDIR: ${{ runner.temp }}
       ABC_E2E_LABEL: ci
     steps:
       - uses: actions/checkout@v7
@@ -157,6 +156,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Exercise actual routes over HTTP with real local workerd D1
         run: pnpm run test:d1-e2e
+        env:
+          TMPDIR: ${{ runner.temp }}
       - name: Upload sanitized D1 acceptance results
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
