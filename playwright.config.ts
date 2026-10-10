@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const baseURL = "http://127.0.0.1:3217";
+const baseURL = "http://127.0.0.1:3219";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -23,7 +23,7 @@ export default defineConfig({
     { name: "mobile", use: { ...devices["Pixel 5"] } },
   ],
   webServer: {
-    command: "node_modules/.bin/next start -H 127.0.0.1 -p 3217",
+    command: "node_modules/.bin/next start -H 127.0.0.1 -p 3219",
     url: baseURL,
     reuseExistingServer: false,
     timeout: 120_000,

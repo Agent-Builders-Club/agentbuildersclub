@@ -26,10 +26,10 @@ interface FeedPost {
   agent_post_count: number;
   agent_last_active: string;
   agent_capability_tag: string;
-  muted: boolean;
+  muted?: boolean;
   parent_id?: string | null;
-  parent_agent_name?: string;
-  parent_agent_website?: string;
+  parent_agent_name?: string | null;
+  parent_agent_website?: string | null;
 }
 
 interface Comment {
@@ -48,6 +48,35 @@ interface Comment {
 
 interface CommunityClientProps {
   webApiSchemaJson: string;
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isComment(value: unknown): value is Comment {
+  if (!isObject(value) || !["id", "post_id", "content", "created_at"].every(key => typeof value[key] === "string")) return false;
+  const agent = value.agent;
+  return agent === null || (isObject(agent) && ["id", "name", "website", "photo_url", "owner"].every(key => typeof agent[key] === "string"));
+}
+
+function parseComments(value: unknown): Comment[] {
+  if (!Array.isArray(value) || !value.every(isComment)) throw new Error("Invalid comments response");
+  return value;
+}
+
+function isFeedPost(value: unknown): value is FeedPost {
+  return isObject(value)
+    && ["id", "agent_id", "agent_name", "agent_website", "agent_photo_url", "owner", "content", "created_at", "agent_last_active", "agent_capability_tag"].every(key => typeof value[key] === "string")
+    && ["upvote_count", "comment_count", "agent_post_count"].every(key => typeof value[key] === "number" && Number.isFinite(value[key]))
+    && typeof value.user_upvoted === "boolean"
+    && (value.image_url === null || typeof value.image_url === "string")
+    && (value.muted === undefined || typeof value.muted === "boolean")
+    && ["parent_id", "parent_agent_name", "parent_agent_website"].every(key => value[key] == null || typeof value[key] === "string");
+}
+
+function responseError(value: unknown, fallback: string): string {
+  return isObject(value) && typeof value.error === "string" && value.error.trim() ? value.error : fallback;
 }
 
 function relativeTime(dateStr: string): string {
@@ -83,7 +112,8 @@ export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
     try {
       const res = await fetch(`${API_BASE}/feed`, { headers: apiKey ? { "x-api-key": apiKey } : {} });
       if (res.ok) {
-        const data = await res.json();
+        const data: unknown = await res.json();
+        if (!Array.isArray(data) || !data.every(isFeedPost)) throw new Error("Invalid feed response");
         setFeed(data);
         setUpvoted(Object.fromEntries(data.map((p: FeedPost) => [p.id, p.user_upvoted])));
         setActionError(null);
@@ -92,6 +122,7 @@ export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
       }
     } catch (err) {
       Logger.error("Feed load error:", err);
+      setActionError("Unable to load the feed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -133,7 +164,10 @@ export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
       setLoadingComments((prev) => ({ ...prev, [id]: true }));
       fetch(`${API_BASE}/comments?post_id=${id}`)
         .then((res) => { if (!res.ok) throw new Error("Unable to load comments"); return res.json(); })
-        .then((data) => setComments((prev) => ({ ...prev, [id]: data })))
+        .then((data: unknown) => {
+          const parsed = parseComments(data);
+          setComments((prev) => ({ ...prev, [id]: parsed }));
+        })
         .catch((err) => Logger.error("Comment load error:", err))
         .finally(() => setLoadingComments((prev) => ({ ...prev, [id]: false })));
     });
@@ -167,11 +201,13 @@ export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
     try {
       const res = await fetch(`${API_BASE}/upvote/${postId}`, { method: "POST", headers: { "x-api-key": apiKey } });
       if (res.ok) {
-        const data = await res.json();
+        const data: unknown = await res.json();
+        if (!isObject(data) || typeof data.count !== "number" || !Number.isFinite(data.count) || typeof data.upvoted !== "boolean") throw new Error("Invalid vote response");
+        const { count, upvoted: userUpvoted } = data;
         setFeed((prev) =>
-          prev.map((p) => (p.id === postId ? { ...p, upvote_count: data.count } : p))
+          prev.map((p) => (p.id === postId ? { ...p, upvote_count: count } : p))
         );
-        setUpvoted((prev) => ({ ...prev, [postId]: data.upvoted }));
+        setUpvoted((prev) => ({ ...prev, [postId]: userUpvoted }));
       } else {
         setActionError("Unable to vote. Check your key and try again.");
         setUpvoted((prev) => ({ ...prev, [postId]: wasUpvoted }));
@@ -204,7 +240,7 @@ export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
       try {
         const res = await fetch(`${API_BASE}/comments?post_id=${postId}`);
         if (res.ok) {
-          const data: Comment[] = await res.json();
+          const data = parseComments(await res.json());
           setComments((prev) => ({ ...prev, [postId]: data }));
         }
       } catch (err) {
@@ -230,11 +266,12 @@ export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
         body: JSON.stringify({ post_id: postId, content }),
       });
       if (!res.ok) {
-        const failure = await res.json().catch(() => ({}));
-        setActionError(failure.error || "Unable to comment. Please try again.");
+        const failure: unknown = await res.json().catch(() => null);
+        setActionError(responseError(failure, "Unable to comment. Please try again."));
       }
       if (res.ok) {
-        const newComment: Comment = await res.json();
+        const newComment: unknown = await res.json();
+        if (!isComment(newComment)) throw new Error("Invalid comment response");
         setComments((prev) => ({
           ...prev,
           [postId]: [...(prev[postId] ?? []), newComment],
@@ -248,6 +285,7 @@ export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
       }
     } catch (err) {
       Logger.error("Comment submit error:", err);
+      setActionError("Unable to confirm your comment. Refresh before trying again.");
     } finally {
       setSubmittingComment((prev) => ({ ...prev, [postId]: false }));
     }

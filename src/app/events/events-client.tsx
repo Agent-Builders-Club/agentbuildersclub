@@ -3,6 +3,7 @@
 import Image from "next/image";
 
 import { motion } from "framer-motion";
+import { siteConfig } from "@/config";
 
 interface EventClientProps {
   eventSchemaJson?: string;
@@ -29,7 +30,7 @@ const pastEvents = [
     date: "June 28, 2026",
     image: "/node-06-hermes-arlington-03.webp",
     description:
-      "Hermes Agent launch event at Spark Coworking Arlington. The community&apos;s own AI agent made its debut — live demo, real conversations, and a look at what&apos;s next for the DFW builder ecosystem.",
+      "Hermes Agent launch event at Spark Coworking Arlington. The community's own AI agent made its debut — live demo, real conversations, and a look at what's next for the DFW builder ecosystem.",
     stats: [
       { value: "Spark Coworking", label: "Arlington" },
       { value: "Jun 28", label: "2026" },
@@ -41,9 +42,8 @@ const pastEvents = [
     date: "June 3, 2026",
     image: "/node-05-claude-tools-southlake-01.webp",
     description:
-      "20+ DFW builders gathered at Office Evolution Southlake for an honest conversation about the AI tools actually on their desks — Cursor, Claude Code, OpenCode, OpenAI, Hermes, OpenClaw, and more. No slides, no pitches — just builders sharing what&apos;s working, what isn&apos;t, and what keeps giving them trouble.",
+      "DFW builders gathered at Office Evolution Southlake for an honest conversation about the AI tools actually on their desks — Cursor, Claude Code, OpenCode, OpenAI, Hermes, OpenClaw, and more. No slides, no pitches — just builders sharing what's working, what isn't, and what keeps giving them trouble.",
     stats: [
-      { value: "20+", label: "Builders" },
       { value: "Tools", label: "On The Desk" },
       { value: "Southlake", label: "Office Evolution" },
     ],
@@ -56,7 +56,6 @@ const pastEvents = [
     description:
       "Claude In The Wild Meetup. Informal meetup where people are putting Claude to work on real projects and sharing what actually helps in day-to-day use. Heavy token users showing workflows, automations, research helpers, writing tools, and practical setups.",
     stats: [
-      { value: "30+", label: "Attendees" },
       { value: "Claude", label: "In The Wild" },
       { value: "25N Coworking", label: "Frisco Host" },
     ],
@@ -69,7 +68,6 @@ const pastEvents = [
     description:
       "Hands-on Mac Mini + OpenClaw install workshop. Live demo of the Mac Mini OpenClaw setup. Great networking and builders of all levels.",
     stats: [
-      { value: "~10", label: "Attendees" },
       { value: "Live Demo", label: "Mac Mini OpenClaw" },
       { value: "Workshop", label: "Hands-on Setup" },
     ],
@@ -80,7 +78,7 @@ const pastEvents = [
     date: "April 15, 2026",
     image: "/spark-arlington.png",
     description:
-      "Weekly meetup for DFW builders tinkering with AI agents and OpenClaw. No agenda, no slides — just people with laptops and coffee.",
+      "A meetup for DFW builders tinkering with AI agents and OpenClaw. No agenda, no slides — just people with laptops and coffee.",
     stats: null,
   },
   {
@@ -89,11 +87,10 @@ const pastEvents = [
     date: "March 24, 2026",
     image: "/clawcon-1.webp",
     description:
-      "Our inaugural node. 100+ DFW builders showed up to the Choctaw Stadium district for live demos, lightning talks, and real conversations about shipping AI projects.",
+      "Our inaugural meetup. DFW builders gathered at the Choctaw Stadium district for live demos, lightning talks, and real conversations about shipping AI projects.",
     stats: [
-      { value: "100+", label: "Attendees" },
       { value: "4", label: "Live Demos" },
-      { value: "1", label: "Node Launched" },
+      { value: "First", label: "DFW Meetup" },
     ],
   },
 ];
@@ -129,8 +126,8 @@ export function EventsClient({ eventSchemaJson, faqSchemaJson }: EventClientProp
                 Events
               </motion.h1>
               <motion.p {...stagger(2)} className="mt-4 text-base text-muted max-w-xl mx-auto">
-                Every week, builders come together to ship something real.
-                No panels. No slides. Just demos, code, and decisions made in the room.
+                Meet DFW builders working on AI agents and practical tools.
+                Explore projects, share what you are learning, and find the next meetup on Luma.
               </motion.p>
             </div>
           </section>
@@ -146,11 +143,10 @@ export function EventsClient({ eventSchemaJson, faqSchemaJson }: EventClientProp
               </motion.p>
               <motion.div
                 {...stagger(1)}
-                className="relative w-full"
-                style={{ paddingTop: "75%" }}
+                className="relative w-full h-[520px] md:h-[640px]"
               >
                 <iframe
-                  src="https://luma.com/embed/calendar/cal-AzkmUYVr0KtSTQ9/events"
+                  src={siteConfig.lumaEmbedUrl}
                   width="100%"
                   height="100%"
                   frameBorder="0"
@@ -161,6 +157,18 @@ export function EventsClient({ eventSchemaJson, faqSchemaJson }: EventClientProp
                   title="Agent Builders Club Events"
                 />
               </motion.div>
+              {/* Always available, even when the cross-origin calendar is empty or blocked. */}
+              <div className="mt-8 border-t border-border pt-6 text-center">
+                <p className="text-base text-muted mb-5">{siteConfig.eventFallback}</p>
+                <a
+                  href={siteConfig.lumaUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block border border-border px-6 py-3 font-mono text-sm uppercase tracking-widest text-muted hover:border-accent hover:text-accent transition-colors"
+                >
+                  View meetups on Luma
+                </a>
+              </div>
             </div>
           </section>
 
@@ -182,6 +190,7 @@ export function EventsClient({ eventSchemaJson, faqSchemaJson }: EventClientProp
                           src={event.image}
                           alt={event.title}
                           fill
+                          sizes="(min-width: 768px) 50vw, 100vw"
                           className="object-cover opacity-70"
                         />
                         <div className="absolute top-4 left-4 border border-border bg-void/90 px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-dim">
@@ -189,7 +198,7 @@ export function EventsClient({ eventSchemaJson, faqSchemaJson }: EventClientProp
                         </div>
                       </div>
                       <h2 className="font-display text-4xl md:text-5xl tracking-wider text-text mb-2">
-                        {event.title}.
+                        {event.title}
                       </h2>
                       <p className="font-mono text-sm text-dim uppercase tracking-widest mb-4">
                         {event.date}
@@ -225,15 +234,15 @@ export function EventsClient({ eventSchemaJson, faqSchemaJson }: EventClientProp
                 Stay in the Loop
               </motion.p>
               <motion.h2 {...stagger(1)} className="font-display text-3xl md:text-5xl tracking-wider text-text mb-6">
-                Come to the next Node.
+                Come to the next Meetup.
               </motion.h2>
               <motion.p {...stagger(2)} className="text-base text-muted mb-8">
-                Every Node is free to attend. Bring a build to show, or just come to watch.
-                Either way — you won&apos;t leave empty-handed.
+                Bring a build to share or a question to explore. Check each meetup on Luma
+                for the date, location, format, and RSVP details.
               </motion.p>
               <motion.div {...stagger(3)} className="flex justify-center">
                 <a
-                  href="https://discord.gg/q8kEquTu3z"
+                  href={siteConfig.discordUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="border border-border px-8 py-4 font-mono text-sm uppercase tracking-widest text-muted hover:border-accent hover:text-accent transition-colors text-center"

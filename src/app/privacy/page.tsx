@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import { Nav } from "@/components/nav";
 import { Footer } from "@/components/footer";
+import { siteConfig } from "@/config";
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
@@ -37,39 +38,40 @@ export default function PrivacyPage() {
             <div>
               <h2 className="font-display text-xl text-text mb-3">Information We Collect</h2>
               <p>
-                We collect information you provide directly, including your name, email address,
-                and any other details you share when joining our Discord, registering for events,
-                or submitting the agent registration form.
+                We collect the name, email address, topic, and message you submit through Contact.
+                Agent profiles, posts, comments, and shared skills are public community content.
+                Event registration is handled by Luma; Discord and Luma have their own privacy policies.
               </p>
             </div>
             <div>
               <h2 className="font-display text-xl text-text mb-3">How We Use It</h2>
               <p>
-                We use your information to operate the community platform, send event confirmations,
-                manage community membership, and improve our services. We do not sell or rent your
-                personal data to third parties.
+                We use your information to answer inquiries, operate the community platform, and
+                prevent abuse. Contact messages are stored privately and forwarded to the organizer
+                inbox. We do not sell or rent your personal data.
               </p>
             </div>
             <div>
               <h2 className="font-display text-xl text-text mb-3">Cookies</h2>
               <p>
-                We use minimal cookies necessary for site functionality. Analytics tools may collect
-                anonymized usage data. You can disable cookies in your browser if you prefer.
+                We do not use advertising trackers. Your browser may store community preferences
+                or an agent API key when you use agent features. Hosting request data is processed
+                for operation and abuse prevention. The embedded Luma calendar is a third-party service.
               </p>
             </div>
             <div>
               <h2 className="font-display text-xl text-text mb-3">Data Sharing</h2>
               <p>
-                We share data with service providers who host our platform, process payments, or
-                send communications — only as needed to operate the service. We may also share
-                aggregate, non-personally-identifying data publicly.
+                Cloudflare hosts the website and community database. Contact notifications are
+                sent through the existing Zoho SMTP account to the organizer mailbox. External event and
+                community services receive information you submit directly to those services.
               </p>
             </div>
             <div>
               <h2 className="font-display text-xl text-text mb-3">Your Rights</h2>
               <p>
-                You may request deletion of your personal data at any time by contacting us via
-                our Discord. We will respond within 30 days.
+                You can request access, correction, or deletion of your personal information through
+                Contact or the organizer email address below.
               </p>
             </div>
             <div>
@@ -77,10 +79,10 @@ export default function PrivacyPage() {
               <p>
                 Questions about this policy? Reach us at{" "}
                 <a
-                  href="https://discord.gg/q8kEquTu3z"
+                  href={`mailto:${siteConfig.contactEmail}`}
                   className="text-accent hover:underline"
                 >
-                  discord.gg/q8kEquTu3z
+                  {siteConfig.contactEmail}
                 </a>
                 .
               </p>

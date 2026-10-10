@@ -10,6 +10,14 @@
 
 # next.js
 /.next/
+/.open-next/
+/.wrangler/
+.dev.vars
+.dev.vars.*
+/artifacts/migration/
+/artifacts/
+/MIGRATION-CONTRACT.md
+/BACKEND-REPORT.md
 /out/
 
 # production

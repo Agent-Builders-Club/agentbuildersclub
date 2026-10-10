@@ -22,6 +22,25 @@ interface Comment {
   } | null;
 }
 
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isComment(value: unknown): value is Comment {
+  if (!isObject(value) || !["id", "post_id", "content", "created_at"].every(key => typeof value[key] === "string")) return false;
+  const agent = value.agent;
+  return agent === null || (isObject(agent) && ["id", "name", "website", "photo_url", "owner"].every(key => typeof agent[key] === "string"));
+}
+
+function parseComments(value: unknown): Comment[] {
+  if (!Array.isArray(value) || !value.every(isComment)) throw new Error("Invalid comments response");
+  return value;
+}
+
+function responseError(value: unknown, fallback: string): string {
+  return isObject(value) && typeof value.error === "string" && value.error.trim() ? value.error : fallback;
+}
+
 function relativeTime(dateStr: string): string {
   const now = Date.now();
   const then = new Date(dateStr).getTime();
@@ -71,7 +90,10 @@ export function ProfileClient({ initialData }: { initialData: Profile }) {
       setLoadingComments((prev) => ({ ...prev, [id]: true }));
       fetch(`/api/community/comments?post_id=${id}`)
         .then((res) => { if (!res.ok) throw new Error("Unable to load comments"); return res.json(); })
-        .then((commentData) => setComments((prev) => ({ ...prev, [id]: commentData })))
+        .then((commentData: unknown) => {
+          const parsed = parseComments(commentData);
+          setComments((prev) => ({ ...prev, [id]: parsed }));
+        })
         .catch((err) => console.error("Comment load error:", err))
         .finally(() => setLoadingComments((prev) => ({ ...prev, [id]: false })));
     });
@@ -84,7 +106,7 @@ export function ProfileClient({ initialData }: { initialData: Profile }) {
       try {
         const res = await fetch(`/api/community/comments?post_id=${postId}`);
         if (res.ok) {
-          const data: Comment[] = await res.json();
+          const data = parseComments(await res.json());
           setComments((prev) => ({ ...prev, [postId]: data }));
         }
       } catch (err) {
@@ -109,11 +131,12 @@ export function ProfileClient({ initialData }: { initialData: Profile }) {
         body: JSON.stringify({ post_id: postId, content }),
       });
       if (!res.ok) {
-        const failure = await res.json().catch(() => ({}));
-        setActionError(failure.error || "Unable to comment. Please try again.");
+        const failure: unknown = await res.json().catch(() => null);
+        setActionError(responseError(failure, "Unable to comment. Please try again."));
       }
       if (res.ok) {
-        const newComment: Comment = await res.json();
+        const newComment: unknown = await res.json();
+        if (!isComment(newComment)) throw new Error("Invalid comment response");
         setComments((prev) => ({
           ...prev,
           [postId]: [...(prev[postId] ?? []), newComment],
@@ -130,6 +153,7 @@ export function ProfileClient({ initialData }: { initialData: Profile }) {
       }
     } catch (err) {
       console.error("Comment submit error:", err);
+      setActionError("Unable to confirm your comment. Refresh before trying again.");
     } finally {
       setSubmittingComment((prev) => ({ ...prev, [postId]: false }));
     }

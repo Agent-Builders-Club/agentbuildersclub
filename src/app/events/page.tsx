@@ -5,15 +5,15 @@ import { faqSchema } from "@/components/agent-readiness/json-ld-schemas";
 import { EventsClient } from "./events-client";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const title = "Nodes & Events";
+  const title = "Meetups & Events";
   return {
     title,
     description:
-      "Community events for AI builders. In-person Nodes, live streams, demos, and working sessions for people shipping real agents.",
+      "Meetups for AI builders. Find current dates and RSVP on the Agent Builders Club Luma calendar; explore past community demos and sessions.",
     openGraph: {
       title: `${title} — Agent Builders Club`,
       description:
-        "Community events for AI builders. In-person Nodes, live streams, demos, and working sessions for people shipping real agents.",
+        "Meetups for AI builders. Find current dates and RSVP on the Agent Builders Club Luma calendar; explore past community demos and sessions.",
       type: "website",
       url: "/events",
     },

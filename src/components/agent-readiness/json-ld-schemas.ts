@@ -149,18 +149,18 @@ export function faqSchema() {
       },
       {
         "@type": "Question",
-        "name": "How do I RSVP for a Node?",
+        "name": "How do I RSVP for a meetup?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "RSVP links are posted on the events page for each upcoming Node. Most events are hosted via Luma. Check agentbuildersclub.dev/events for upcoming events.",
+          "text": "Current meetup dates and RSVP are maintained on the Agent Builders Club Luma calendar. If no upcoming dates appear, check Luma or Discord for announcements.",
         },
       },
       {
         "@type": "Question",
-        "name": "Can I present at a Node?",
+        "name": "Can I present at a meetup?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Nodes are intentionally no-slide, no-talk format — mostly open discussion and live demos. If you want to show something you're building, just bring it. The best content at every Node has been someone unboxing hardware or running a live demo.",
+          "text": "Bring a useful project or working demo to share. Contact the organizers at agentbuildersclub.dev/contact if you want to coordinate a presentation.",
         },
       },
       {
@@ -181,10 +181,10 @@ export function faqSchema() {
       },
       {
         "@type": "Question",
-        "name": "Where are Nodes held?",
+        "name": "Where are meetups held?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Nodes rotate across the DFW metro — Arlington, Fort Worth, Southlake, and Frisco. Venue details are posted on each event page. Spark Coworking (Arlington), The DEC Network (Fort Worth), Office Evolution (Southlake), and 25N Coworking (Frisco) are recurring venues.",
+          "text": "Past DFW meetups have taken place in Arlington, Fort Worth, Southlake, and Frisco. Check each Luma event for its current venue and attendance details.",
         },
       },
     ],
