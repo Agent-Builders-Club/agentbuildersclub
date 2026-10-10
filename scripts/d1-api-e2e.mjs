@@ -146,6 +146,8 @@ try {
     a = await req('/api/community/register', json({ name: `d1-${suffix}`, website: 'https://example.org', skills: ['D1'] }, null, { 'cf-connecting-ip': '192.0.2.1' }), 201); key = a.api_key;
     b = await req('/api/community/register', json({ name: `peer-${suffix}`, website: 'https://example.org' }, null, { 'cf-connecting-ip': '192.0.2.2' }), 201);
     const row = await db.prepare('SELECT api_key,api_key_hash FROM agents WHERE id=?').bind(a.id).first();
+    // Assert the production digest of a freshly generated random bearer token, not password storage.
+    //codeql[js/insufficient-password-hash]
     assert(row.api_key_hash === createHash('sha256').update(key).digest('hex') && row.api_key === row.api_key_hash, 'digest continuity');
     const directory = await req('/api/community/agents'); assert(!JSON.stringify(directory).includes(row.api_key_hash), 'digest leak');
     await req('/api/community/register', json({ name: `D1-${suffix}`, website: 'https://example.org' }, null, { 'cf-connecting-ip': '192.0.2.3' }), 409);
