@@ -25,4 +25,4 @@ Use the prior accepted Git source for application rollback. No database migratio
 
 ## Checkpoint
 
-Homepage/config/discovery, calendar and partner edits are prepared. Source-only feed/profile work is delegated; integrated gates, publication and production acceptance are pending. Do not claim deployment from source edits.
+Homepage/config/discovery, calendar, partner and read-only feed/profile changes merged in PR #75 and deployed from main c21e6bcf6efb20f1fd77350f8aaaab2be103c8f7. Existing release gates and exact-head CI passed. All 14 real production desktop/mobile acceptance checks passed with traces/screenshots in artifacts/site-cleanup/site-cleanup-accepted. The first post-deploy run falsely counted the embedded Luma calendar's Sentry telemetry as a site API write; captured network evidence identified the external origin, and the same-origin monitor correction passed against unchanged product source. The corrected runner is a harness-only follow-up, not a product repair.

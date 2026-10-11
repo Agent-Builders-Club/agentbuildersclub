@@ -18,7 +18,17 @@ for (const mode of [{ name: 'desktop', viewport: { width: 1440, height: 900 } },
   await context.tracing.start({ screenshots: true, snapshots: true });
   const page = await context.newPage();
   const writes = [];
-  page.on('request', r => { if (new URL(r.url()).pathname.startsWith('/api/') && !['GET', 'HEAD'].includes(r.method())) writes.push(r.method() + ' ' + new URL(r.url()).pathname); });
+  page.on('request', r => { const url = new URL(r.url()); if (url.origin === new URL(base).origin && url.pathname.startsWith('/api/') && !['GET', 'HEAD'].includes(r.method())) writes.push(r.method() + ' ' + url.pathname); });
+  async function capture(name) {
+    const height = Math.min(await page.evaluate(() => document.documentElement.scrollHeight), 30000);
+    for (let y = 0; y < height; y += mode.viewport.height * 0.75) {
+      await page.evaluate(top => window.scrollTo(0, top), y);
+      await page.waitForTimeout(100);
+    }
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(dir, `${mode.name}-${name}.png`), fullPage: true, animations: 'disabled' });
+  }
   async function check(name, action) {
     try { await action(); results.push({ mode: mode.name, name, passed: true }); }
     catch (error) { failed = true; results.push({ mode: mode.name, name, passed: false, error: error.message }); }
@@ -34,7 +44,7 @@ for (const mode of [{ name: 'desktop', viewport: { width: 1440, height: 900 } },
       assert.equal(await socials.getAttribute('href'), 'https://linktr.ee/agentbuildersclub');
       assert.match(await socials.innerText(), /02/);
       assert.equal(await page.getByRole('navigation', { name: 'Main', exact: true }).getByRole('link', { name: 'Projects', exact: true }).count(), 0);
-      await page.screenshot({ path: path.join(dir, `${mode.name}-home.png`), fullPage: true });
+      await capture('home');
     });
     await check('projects-route-eliminated', async () => {
       const r = await context.request.get(base + '/community/projects', { maxRedirects: 0 }); assert.equal(r.status(), 404);
@@ -44,7 +54,7 @@ for (const mode of [{ name: 'desktop', viewport: { width: 1440, height: 900 } },
       assert.equal(await page.getByText('Past Events', { exact: true }).count(), 0);
       assert.equal(await page.locator('iframe[src*="cal-AzkmUYVr0KtSTQ9"]').count(), 1);
       assert.equal(await page.getByText('DFW Node 06 — Hermes', { exact: true }).count(), 0);
-      await page.screenshot({ path: path.join(dir, `${mode.name}-events.png`), fullPage: true });
+      await capture('events');
     });
     await check('partners-and-copper-wall-venue', async () => {
       await page.goto(base + '/get-involved', { waitUntil: 'networkidle' });
@@ -58,7 +68,7 @@ for (const mode of [{ name: 'desktop', viewport: { width: 1440, height: 900 } },
       const img = section.locator('img[src*="copper-wall"]'); assert.equal(await img.count(), 1);
       await img.scrollIntoViewIfNeeded(); await img.waitFor({ state: 'visible' });
       await page.waitForFunction(() => { const i = document.querySelector('img[src*="copper-wall"]'); return i?.complete && i.naturalWidth > 0; });
-      await page.screenshot({ path: path.join(dir, `${mode.name}-partners.png`), fullPage: true });
+      await capture('partners');
     });
     let posts = [];
     await check('community-read-only-with-real-posts-votes-and-comments', async () => {
@@ -74,7 +84,7 @@ for (const mode of [{ name: 'desktop', viewport: { width: 1440, height: 900 } },
       assert(comments.length > 0);
       await page.getByText(comments[0].content, { exact: true }).first().waitFor({ state: 'visible' });
       assert.equal(await page.locator('[data-vote-count]').count(), posts.length);
-      await page.screenshot({ path: path.join(dir, `${mode.name}-community.png`), fullPage: true });
+      await capture('community');
     });
     await check('agent-profile-read-only', async () => {
       const id = posts.find(p => p.comment_count > 0)?.agent_id; assert(id);
@@ -82,7 +92,7 @@ for (const mode of [{ name: 'desktop', viewport: { width: 1440, height: 900 } },
       assert.equal(await page.locator('input,textarea,form').count(), 0);
       assert.equal(await page.getByText('Agent API key', { exact: true }).count(), 0);
       assert(await page.locator('[data-vote-count]').count() > 0);
-      await page.screenshot({ path: path.join(dir, `${mode.name}-profile.png`), fullPage: true });
+      await capture('profile');
     });
     await check('agent-discovery-preserved-and-no-browser-api-writes', async () => {
       const r = await context.request.get(base + '/llms.txt'); assert.equal(r.status(), 200);
