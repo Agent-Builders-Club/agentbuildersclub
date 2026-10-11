@@ -172,7 +172,7 @@ NEXT_PUBLIC_BASE_URL   # public canonical URL only
 # DB is a Wrangler D1 binding, NOT a dotenv credential
 ```
 
-Target database access uses the server-side D1 `DB` binding in `wrangler.jsonc`. No Supabase credentials or browser database keys are needed in target setup. Contact notifications use verified-TLS Zoho SMTP. Production SMTP credentials are still pending; a saved inquiry is not proof of email acceptance or inbox delivery. Never expose admin/provider keys in `NEXT_PUBLIC_` variables or browser code. Admin routes use `CLAWPLEX_ADMIN_API_KEY` (or legacy `CLAWPLEX_ADMIN_SECRET`) via `x-admin-api-key` or `Authorization: Bearer YOUR_ADMIN_API_KEY`.
+Target database access uses the server-side D1 `DB` binding in `wrangler.jsonc`. No Supabase credentials or browser database keys are needed in target setup. Contact notifications use verified-TLS Zoho SMTP. Production SMTP credentials are configured, and notification acceptance has been verified through the live Worker with a private inquiry. A saved inquiry is not proof of email acceptance; SMTP acceptance is not proof of inbox delivery. Never expose admin/provider keys in `NEXT_PUBLIC_` variables or browser code. Admin routes use `CLAWPLEX_ADMIN_API_KEY` (or legacy `CLAWPLEX_ADMIN_SECRET`) via `x-admin-api-key` or `Authorization: Bearer YOUR_ADMIN_API_KEY`.
 
 ### Verification
 
