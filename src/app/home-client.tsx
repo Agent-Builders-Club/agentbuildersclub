@@ -203,11 +203,15 @@ function LandingPhotos() {
 function WaysToEngage() {
   const descriptions: Record<string, string> = {
     Events: "Find current meetup dates, locations, and RSVP details on Luma.",
-    Projects: "Explore work shared by builders in the community.",
+    Socials: "Follow the club and find all our community links in one place.",
     "Get Involved": "Share a demo, help organize, or offer a space for a meetup.",
     Contact: "Ask the organizers about attending, presenting, hosting, or supporting the club.",
   };
-  const ways = siteConfig.navigation.map((item, i) => ({
+  const ways = [
+    siteConfig.navigation[0],
+    { label: "Socials", href: siteConfig.socialsUrl },
+    ...siteConfig.navigation.slice(1),
+  ].map((item, i) => ({
     num: String(i + 1).padStart(2, "0"),
     label: item.label,
     title: item.label,
@@ -261,116 +265,6 @@ function WaysToEngage() {
               </div>
             </motion.a>
           ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ── Community Spotlight ──────────────────────────────────────────────── */
-function CommunitySpotlight() {
-  const items = [
-    {
-      name: "Y2 OSINT Platform",
-      builder: "Fort-OS",
-      description: "OSINT platform and intelligence API shared by Fort-OS.",
-      tag: "Infrastructure",
-      href: "https://y2.dev",
-      external: true,
-    },
-    {
-      name: "Parkinson Research Agent",
-      builder: "Tylerdotai",
-      description: "An AI research project focused on Parkinson's disease, shared by Tylerdotai.",
-      tag: "Research",
-      href: "https://parkinson-research.vercel.app",
-      external: true,
-    },
-    {
-      name: "Nodemind",
-      builder: "abhishek085",
-      description: "A local macOS project for turning spoken thought into structure.",
-      tag: "Local AI",
-      href: "https://github.com/abhishek085/Nodemind",
-      external: true,
-    },
-    {
-      name: "AI with Amit",
-      builder: "@ai-withamit",
-      description: "YouTube channel covering AI tools, agents, and practical applications for builders in the DFW community.",
-      tag: "Content",
-      href: "https://www.youtube.com/@ai-withamit",
-      external: true,
-    },
-  ];
-
-  return (
-    <section id="projects" className="border-t border-border px-5 md:px-8 py-20 md:py-28 lg:py-32">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-12 md:mb-16 flex flex-col md:flex-row md:items-end md:justify-between gap-6">
-          <div>
-            <motion.p {...stagger(0)} className="font-mono text-[11px] uppercase tracking-[0.22em] text-accent mb-4">
-              Community spotlight
-            </motion.p>
-            <motion.h2 {...stagger(1)} className="font-display text-4xl sm:text-5xl lg:text-[60px] leading-[1.02] tracking-tight text-text">
-              What We <span className="underline-accent">Build.</span>
-            </motion.h2>
-          </div>
-          <motion.a
-            {...stagger(2)}
-            href="/community/projects"
-            className="self-start md:self-end inline-flex items-center gap-1.5 text-sm text-muted hover:text-text transition-colors group shrink-0"
-          >
-            All projects
-            <span className="text-accent transition-transform group-hover:translate-x-1">→</span>
-          </motion.a>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-px bg-border rounded-lg overflow-hidden border border-border">
-          {items.map((item, i) => {
-            const span = "md:col-span-3";
-            return (
-              <motion.a
-                key={item.name}
-                href={item.href}
-                target={item.external ? "_blank" : "_self"}
-                rel={item.external ? "noopener noreferrer" : undefined}
-                {...stagger(i + 3)}
-                className={`group flex flex-col bg-surface hover:bg-surface-2 transition-colors p-7 md:p-8 ${span}`}
-              >
-                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-accent">{item.tag}</span>
-                <h3 className="mt-5 font-display text-2xl sm:text-[26px] lg:text-[28px] tracking-tight text-text leading-[1.15]">
-                  {item.name}
-                </h3>
-                <p className="mt-3 text-[14px] sm:text-[15px] text-muted leading-[1.6] flex-1">{item.description}</p>
-                <div className="mt-6 pt-4 border-t border-border flex items-center justify-between gap-3 text-[13px]">
-                  <span className="text-accent">by {item.builder}</span>
-                  <span className="inline-flex items-center gap-1 text-muted group-hover:text-text transition-colors">
-                    {item.external ? "Visit" : "Explore"}
-                    <span className="text-accent transition-transform group-hover:translate-x-1">→</span>
-                  </span>
-                </div>
-              </motion.a>
-            );
-          })}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ── For Agents ─────────────────────────────────────────────────────────── */
-function ForAgents() {
-  return (
-    <section id="community" className="border-t border-border px-5 md:px-8 py-16 md:py-20">
-      <div className="mx-auto max-w-5xl">
-        <h2 className="font-display text-3xl sm:text-4xl text-text">Keep building between meetups.</h2>
-        <p className="mt-5 text-muted leading-relaxed max-w-3xl">Join the conversation on Discord, explore the community feed, or share useful work through the agent community.</p>
-        <p className="mt-4 text-muted leading-relaxed max-w-3xl">{siteConfig.communityPolicy.summary}</p>
-        <div className="mt-6 flex flex-wrap gap-x-6 gap-y-3 text-sm">
-          <a href={siteConfig.discordUrl} target="_blank" rel="noopener noreferrer" className="text-accent">Join Discord →</a>
-          {siteConfig.communityNavigation.map(item => <Link key={item.href} href={item.href} className="text-muted hover:text-text transition-colors">{item.label} →</Link>)}
-          <a href="/llms.txt" className="text-muted hover:text-text transition-colors">Agent registration docs →</a>
-          <Link href="/privacy" className="text-muted hover:text-text transition-colors">Privacy policy →</Link>
         </div>
       </div>
     </section>
@@ -544,12 +438,6 @@ export function HomeClient() {
           </article>
           <article>
             <WaysToEngage />
-          </article>
-          <article>
-            <CommunitySpotlight />
-          </article>
-          <article>
-            <ForAgents />
           </article>
           <article>
             <Organizers />

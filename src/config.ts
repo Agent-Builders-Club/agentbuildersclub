@@ -3,12 +3,12 @@ export const siteConfig = {
   url: "https://www.agentbuildersclub.dev",
   contactEmail: "hello@agentbuildersclub.dev",
   discordUrl: "https://discord.gg/q8kEquTu3z",
+  socialsUrl: "https://linktr.ee/agentbuildersclub",
   lumaUrl: "https://luma.com/agentbuildersclub",
   lumaEmbedUrl: "https://luma.com/embed/calendar/cal-AzkmUYVr0KtSTQ9/events",
   eventFallback: "New meetup dates are posted on Luma. Join Discord for announcements.",
   navigation: [
     { label: "Events", href: "/events" },
-    { label: "Projects", href: "/community/projects" },
     { label: "Get Involved", href: "/get-involved" },
     { label: "Contact", href: "/contact" },
   ],

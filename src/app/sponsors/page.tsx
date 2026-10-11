@@ -4,7 +4,7 @@ import { permanentRedirect } from "next/navigation";
 export async function generateMetadata(): Promise<Metadata> {
   const title = "Work With Us";
   const description =
-    "Partner with the DFW AI builder community: sponsorships, venue partnerships, and AI credits.";
+    "Partner with the DFW AI builder community: partnerships, venue partnerships, and AI credits.";
   return {
     title,
     description,

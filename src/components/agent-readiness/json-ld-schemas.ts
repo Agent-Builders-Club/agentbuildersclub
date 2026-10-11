@@ -168,7 +168,7 @@ export function faqSchema() {
         "name": "Is there a cost to attend?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "No. Agent Builders Club is free to attend. Venues are provided by partners and sponsors keep it sustainable.",
+          "text": "No. Agent Builders Club is free to attend. Venues and practical community support are provided by our partners.",
         },
       },
       {

@@ -8,7 +8,7 @@ import { siteConfig } from "@/config";
 const fieldClass = "mt-2 block w-full rounded-md border border-border bg-surface px-4 py-3 text-base text-text placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60";
 const topics = [
   { value: "attendee", label: "Attendee — meetup question" },
-  { value: "sponsor", label: "Sponsor — support the community" },
+  { value: "sponsor", label: "Partner — support the community" },
   { value: "venue", label: "Venue — host a meetup" },
   { value: "presenting", label: "Presenting — share a build" },
   { value: "other", label: "Other" },

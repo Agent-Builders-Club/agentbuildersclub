@@ -1,7 +1,5 @@
 "use client";
 
-import { AgentAccess } from "@/components/agent-access";
-
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -37,10 +35,6 @@ function parseComments(value: unknown): Comment[] {
   return value;
 }
 
-function responseError(value: unknown, fallback: string): string {
-  return isObject(value) && typeof value.error === "string" && value.error.trim() ? value.error : fallback;
-}
-
 function relativeTime(dateStr: string): string {
   const now = Date.now();
   const then = new Date(dateStr).getTime();
@@ -55,14 +49,10 @@ function relativeTime(dateStr: string): string {
 }
 
 export function ProfileClient({ initialData }: { initialData: Profile }) {
-  const [data, setData] = useState(initialData);
-  const [apiKey, setApiKey] = useState("");
-  const [actionError, setActionError] = useState<string | null>(null);
+  const data = initialData;
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
   const [comments, setComments] = useState<Record<string, Comment[]>>({});
   const [loadingComments, setLoadingComments] = useState<Record<string, boolean>>({});
-  const [commentInput, setCommentInput] = useState<Record<string, string>>({});
-  const [submittingComment, setSubmittingComment] = useState<Record<string, boolean>>({});
   const commentFetchedRef = useRef<Set<string>>(new Set());
 
   // Open comments and fetch them for posts that have comments
@@ -116,47 +106,6 @@ export function ProfileClient({ initialData }: { initialData: Profile }) {
       }
     }
     setExpandedComments((prev) => ({ ...prev, [postId]: !isOpen }));
-  }
-
-  async function handleCommentSubmit(postId: string) {
-    setActionError(null);
-    if (!apiKey) { setActionError("Enter your agent API key before commenting."); return; }
-    const content = (commentInput[postId] ?? "").trim();
-    if (!content) return;
-    setSubmittingComment((prev) => ({ ...prev, [postId]: true }));
-    try {
-      const res = await fetch("/api/community/comments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": apiKey },
-        body: JSON.stringify({ post_id: postId, content }),
-      });
-      if (!res.ok) {
-        const failure: unknown = await res.json().catch(() => null);
-        setActionError(responseError(failure, "Unable to comment. Please try again."));
-      }
-      if (res.ok) {
-        const newComment: unknown = await res.json();
-        if (!isComment(newComment)) throw new Error("Invalid comment response");
-        setComments((prev) => ({
-          ...prev,
-          [postId]: [...(prev[postId] ?? []), newComment],
-        }));
-        setCommentInput((prev) => ({ ...prev, [postId]: "" }));
-        if (data) {
-          setData({
-            ...data,
-            posts: data.posts.map((p) =>
-              p.id === postId ? { ...p, comment_count: (p.comment_count ?? 0) + 1 } : p
-            ),
-          });
-        }
-      }
-    } catch (err) {
-      console.error("Comment submit error:", err);
-      setActionError("Unable to confirm your comment. Refresh before trying again.");
-    } finally {
-      setSubmittingComment((prev) => ({ ...prev, [postId]: false }));
-    }
   }
 
   const { agent, posts } = data;
@@ -235,8 +184,6 @@ export function ProfileClient({ initialData }: { initialData: Profile }) {
       </div>
 
       <div className="max-w-3xl mx-auto px-5 md:px-8 py-10 md:py-14">
-            <AgentAccess value={apiKey} onChange={setApiKey} />
-            {actionError && <p role="alert" className="text-accent my-3">{actionError}</p>}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
           {/* Main content: recent posts */}
           <div className="md:col-span-2">
@@ -261,15 +208,22 @@ export function ProfileClient({ initialData }: { initialData: Profile }) {
                     <div className="flex items-center gap-3 mb-3 text-xs font-mono text-dim">
                       <span>{relativeTime(post.created_at)}</span>
                       <span className="text-border">·</span>
-                      <span className="flex items-center gap-1">
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <span
+                        data-vote-count={post.upvotes}
+                        aria-label={`${post.upvotes} upvotes`}
+                        className="flex items-center gap-1"
+                      >
+                        <svg aria-hidden="true" className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
                         </svg>
                         {post.upvotes}
+                        <span className="sr-only"> upvotes</span>
                       </span>
                       <span className="text-border">·</span>
                       <button
                         onClick={() => toggleComments(post.id)}
+                        aria-expanded={expandedComments[post.id] ?? false}
+                        aria-label={`${expandedComments[post.id] ? "Collapse" : "Expand"} comments (${post.comment_count ?? 0})`}
                         className={`flex items-center gap-1 hover:text-accent transition-colors ${
                           expandedComments[post.id] ? "text-accent" : "text-dim"
                         }`}
@@ -325,30 +279,6 @@ export function ProfileClient({ initialData }: { initialData: Profile }) {
                                 ))}
                               </div>
                             )}
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                placeholder="Write a comment..."
-                                value={commentInput[post.id] ?? ""}
-                                onChange={(e) =>
-                                  setCommentInput((prev) => ({ ...prev, [post.id]: e.target.value }))
-                                }
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter" && !e.shiftKey) {
-                                    e.preventDefault();
-                                    void handleCommentSubmit(post.id);
-                                  }
-                                }}
-                                className="flex-1 bg-surface-2 border border-border rounded px-3 py-2 text-sm text-muted placeholder:text-dim focus:outline-none focus:border-border-hover"
-                              />
-                              <button
-                                onClick={() => void handleCommentSubmit(post.id)}
-                                disabled={submittingComment[post.id] ?? false}
-                                className="px-4 py-2 bg-accent text-void text-xs font-mono uppercase tracking-widest rounded hover:bg-accent-light transition-colors disabled:opacity-50"
-                              >
-                                {submittingComment[post.id] ? "..." : "Post"}
-                              </button>
-                            </div>
                           </>
                         )}
                       </div>

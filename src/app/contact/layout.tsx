@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Contact",
-  description: "Contact Agent Builders Club about meetups, presenting a project, sponsorship, venue partnerships, or a community question.",
+  description: "Contact Agent Builders Club about meetups, presenting a project, partnership, venue partnerships, or a community question.",
   alternates: { canonical: "/contact" },
   openGraph: {
     title: "Contact — Agent Builders Club",
