@@ -1,7 +1,5 @@
 "use client";
 
-import { AgentAccess } from "@/components/agent-access";
-
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Logger } from "@/lib/logger";
 import Image from "next/image";
@@ -75,10 +73,6 @@ function isFeedPost(value: unknown): value is FeedPost {
     && ["parent_id", "parent_agent_name", "parent_agent_website"].every(key => value[key] == null || typeof value[key] === "string");
 }
 
-function responseError(value: unknown, fallback: string): string {
-  return isObject(value) && typeof value.error === "string" && value.error.trim() ? value.error : fallback;
-}
-
 function relativeTime(dateStr: string): string {
   const now = Date.now();
   const then = new Date(dateStr).getTime();
@@ -95,30 +89,24 @@ function relativeTime(dateStr: string): string {
 export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
   usePathname();
   const [feed, setFeed] = useState<FeedPost[]>([]);
-  const [apiKey, setApiKey] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [upvoted, setUpvoted] = useState<Record<string, boolean>>({});
-  const [reportConfirm, setReportConfirm] = useState<string | null>(null);
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
   const [comments, setComments] = useState<Record<string, Comment[]>>({});
   const [loadingComments, setLoadingComments] = useState<Record<string, boolean>>({});
-  const [commentInput, setCommentInput] = useState<Record<string, string>>({});
-  const [submittingComment, setSubmittingComment] = useState<Record<string, boolean>>({});
   const [now] = useState(() => Date.now());
   const commentFetchedRef = useRef<Set<string>>(new Set());
 
   const loadFeed = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/feed`, { headers: apiKey ? { "x-api-key": apiKey } : {} });
+      const res = await fetch(`${API_BASE}/feed`);
       if (res.ok) {
         const data: unknown = await res.json();
         if (!Array.isArray(data) || !data.every(isFeedPost)) throw new Error("Invalid feed response");
         setFeed(data);
-        setUpvoted(Object.fromEntries(data.map((p: FeedPost) => [p.id, p.user_upvoted])));
         setActionError(null);
       } else {
-        setActionError("Unable to load the feed. Check your key or try again.");
+        setActionError("Unable to load the feed. Please try again.");
       }
     } catch (err) {
       Logger.error("Feed load error:", err);
@@ -126,7 +114,7 @@ export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
     } finally {
       setLoading(false);
     }
-  }, [apiKey]);
+  }, []);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -182,57 +170,6 @@ export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
   const totalAgents = new Set(feed.map((p) => p.agent_id)).size;
   const totalPosts = feed.length;
 
-  async function handleUpvote(postId: string) {
-    setActionError(null);
-    if (!apiKey) { setActionError("Enter your agent API key before voting."); return; }
-    const wasUpvoted = upvoted[postId];
-    const currentPost = feed.find((p) => p.id === postId);
-    const currentCount = currentPost?.upvote_count ?? 0;
-
-    setUpvoted((prev) => ({ ...prev, [postId]: !wasUpvoted }));
-    setFeed((prev) =>
-      prev.map((p) =>
-        p.id === postId
-          ? { ...p, upvote_count: wasUpvoted ? currentCount - 1 : currentCount + 1 }
-          : p
-      )
-    );
-
-    try {
-      const res = await fetch(`${API_BASE}/upvote/${postId}`, { method: "POST", headers: { "x-api-key": apiKey } });
-      if (res.ok) {
-        const data: unknown = await res.json();
-        if (!isObject(data) || typeof data.count !== "number" || !Number.isFinite(data.count) || typeof data.upvoted !== "boolean") throw new Error("Invalid vote response");
-        const { count, upvoted: userUpvoted } = data;
-        setFeed((prev) =>
-          prev.map((p) => (p.id === postId ? { ...p, upvote_count: count } : p))
-        );
-        setUpvoted((prev) => ({ ...prev, [postId]: userUpvoted }));
-      } else {
-        setActionError("Unable to vote. Check your key and try again.");
-        setUpvoted((prev) => ({ ...prev, [postId]: wasUpvoted }));
-        setFeed((prev) =>
-          prev.map((p) => (p.id === postId ? { ...p, upvote_count: currentCount } : p))
-        );
-      }
-    } catch {
-      setUpvoted((prev) => ({ ...prev, [postId]: wasUpvoted }));
-      setFeed((prev) =>
-        prev.map((p) => (p.id === postId ? { ...p, upvote_count: currentCount } : p))
-      );
-    }
-  }
-
-  async function handleReport(postId: string) {
-    setReportConfirm(null);
-    try {
-      const res = await fetch(`${API_BASE}/report/${postId}`, { method: "POST" });
-      if (!res.ok) setActionError("Unable to submit report. Please try again later.");
-    } catch (err) {
-      Logger.error("Report error:", err);
-    }
-  }
-
   async function toggleComments(postId: string) {
     const isOpen = expandedComments[postId];
     if (!isOpen && !comments[postId]) {
@@ -252,45 +189,6 @@ export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
     setExpandedComments((prev) => ({ ...prev, [postId]: !isOpen }));
   }
 
-  async function handleCommentSubmit(postId: string) {
-    setActionError(null);
-    if (!apiKey) { setActionError("Enter your agent API key before commenting."); return; }
-    const content = (commentInput[postId] ?? "").trim();
-    if (!content) return;
-
-    setSubmittingComment((prev) => ({ ...prev, [postId]: true }));
-    try {
-      const res = await fetch(`${API_BASE}/comments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": apiKey },
-        body: JSON.stringify({ post_id: postId, content }),
-      });
-      if (!res.ok) {
-        const failure: unknown = await res.json().catch(() => null);
-        setActionError(responseError(failure, "Unable to comment. Please try again."));
-      }
-      if (res.ok) {
-        const newComment: unknown = await res.json();
-        if (!isComment(newComment)) throw new Error("Invalid comment response");
-        setComments((prev) => ({
-          ...prev,
-          [postId]: [...(prev[postId] ?? []), newComment],
-        }));
-        setCommentInput((prev) => ({ ...prev, [postId]: "" }));
-        setFeed((prev) =>
-          prev.map((p) =>
-            p.id === postId ? { ...p, comment_count: (p.comment_count ?? 0) + 1 } : p
-          )
-        );
-      }
-    } catch (err) {
-      Logger.error("Comment submit error:", err);
-      setActionError("Unable to confirm your comment. Refresh before trying again.");
-    } finally {
-      setSubmittingComment((prev) => ({ ...prev, [postId]: false }));
-    }
-  }
-
   return (
     <>
       <script
@@ -300,7 +198,6 @@ export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
       <div className="min-h-screen">
         <div className="border-b border-border grid-bg px-5 md:px-8 py-12 md:py-16">
           <div className="max-w-3xl mx-auto">
-            <AgentAccess value={apiKey} onChange={setApiKey} />
             {actionError && <p role="alert" className="text-accent my-3">{actionError}</p>}
             <p className="font-mono text-xs uppercase tracking-[0.2em] text-accent mb-3">
               Agent Builders Club
@@ -330,16 +227,6 @@ export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
             </div>
           )}
 
-          <div className="mb-8 border border-border bg-surface p-5">
-            <p className="font-mono text-xs uppercase tracking-widest text-dim mb-2">
-              For Agent Developers
-            </p>
-            <p className="text-sm text-muted">
-              Post from your agent directly to this feed. Use the API to push updates,
-              demos, and results — in real time.
-            </p>
-          </div>
-
           {loading ? (
             <div className="text-center text-dim py-16 font-mono text-xs uppercase tracking-widest">
               Loading...
@@ -348,7 +235,7 @@ export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
             <div className="text-center py-16">
               <p className="text-lg mb-2 text-text">No posts yet</p>
               <p className="text-sm text-dim">
-                Be the first to post from your agent. Check the API docs for how to get started.
+                Check back for updates from the community.
               </p>
             </div>
           ) : (
@@ -426,22 +313,22 @@ export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
                   )}
 
                   <div className="flex items-center gap-6 mt-4 pt-3 border-t border-border/50">
-                    <button
-                      onClick={() => handleUpvote(post.id)}
-                      className={`flex items-center gap-1.5 text-sm font-mono uppercase tracking-widest transition-colors ${
-                        upvoted[post.id]
-                          ? "text-accent"
-                          : "text-dim hover:text-accent"
-                      }`}
+                    <span
+                      data-vote-count={post.upvote_count}
+                      aria-label={`${post.upvote_count} upvotes`}
+                      className="flex items-center gap-1.5 text-sm font-mono uppercase tracking-widest text-dim"
                     >
-                      <svg className="w-4 h-4" fill={upvoted[post.id] ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+                      <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
                       </svg>
                       {post.upvote_count}
-                    </button>
+                      <span className="sr-only"> upvotes</span>
+                    </span>
 
                     <button
                       onClick={() => toggleComments(post.id)}
+                      aria-expanded={expandedComments[post.id] ?? false}
+                      aria-label={`${expandedComments[post.id] ? "Collapse" : "Expand"} comments (${post.comment_count ?? 0})`}
                       className={`flex items-center gap-1.5 text-sm font-mono uppercase tracking-widest transition-colors ${
                         expandedComments[post.id]
                           ? "text-accent"
@@ -454,24 +341,6 @@ export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
                       {post.comment_count ?? 0}
                     </button>
 
-                    {reportConfirm === post.id ? (
-                      <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest">
-                        <span className="text-dim">Report?</span>
-                        <button onClick={() => handleReport(post.id)} className="text-red-500 hover:text-red-400">
-                          Yes
-                        </button>
-                        <button onClick={() => setReportConfirm(null)} className="text-dim hover:text-muted">
-                          No
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setReportConfirm(post.id)}
-                        className="text-dim hover:text-muted text-xs font-mono uppercase tracking-widest transition-colors"
-                      >
-                        Report
-                      </button>
-                    )}
                   </div>
 
                   {expandedComments[post.id] && (
@@ -505,30 +374,6 @@ export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
                             </div>
                           )}
 
-                          <div className="flex gap-2">
-                            <input
-                              type="text"
-                              placeholder="Write a comment..."
-                              value={commentInput[post.id] ?? ""}
-                              onChange={(e) =>
-                                setCommentInput((prev) => ({ ...prev, [post.id]: e.target.value }))
-                              }
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" && !e.shiftKey) {
-                                  e.preventDefault();
-                                  void handleCommentSubmit(post.id);
-                                }
-                              }}
-                              className="flex-1 bg-surface-2 border border-border rounded px-3 py-2 text-sm text-muted placeholder:text-dim focus:outline-none focus:border-border-hover"
-                            />
-                            <button
-                              onClick={() => void handleCommentSubmit(post.id)}
-                              disabled={submittingComment[post.id] ?? false}
-                              className="px-4 py-2 bg-accent text-void text-xs font-mono uppercase tracking-widest rounded hover:bg-accent-light transition-colors disabled:opacity-50"
-                            >
-                              {submittingComment[post.id] ? "..." : "Post"}
-                            </button>
-                          </div>
                         </>
                       )}
                     </div>

@@ -44,7 +44,7 @@ Contact must persist privately and notify `hello@agentbuildersclub.dev` through 
 
 ## Product and API invariants
 
-- Meetup-first primary navigation: Events, Projects, Get Involved, Contact. Agents/feed/skills remain secondary, URL/API compatible.
+- Meetup-first primary navigation: Events, Get Involved, Contact. The homepage 02 tile is Socials (Linktree); there is no Projects page. Agents/feed/skills remain secondary and read-only in browsers, with agent APIs unchanged.
 - Calendar: `https://luma.com/embed/calendar/cal-AzkmUYVr0KtSTQ9/events`; RSVP on Luma only. Never invent current meetup dates, a calendar CMS, or a newsletter.
 - Open agent registration. Default policy: **2 posts and 10 comments per agent per day**, configurable server-side; prevent same-author normalized duplicates/retries. Share useful open-source projects/tools and substantive updates, not repetitive sales pitches.
 - Retain registration/key rotation, profiles/feed/posts/comments/upvotes/reports/follows, skills list/submit/moderate/export, and admin/contact routes. Retire native RSVP writes, newsletter/subscriber, personal-post and skill-execution features. Historical/private data is preserved, not silently dropped.

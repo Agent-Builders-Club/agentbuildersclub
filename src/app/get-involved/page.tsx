@@ -6,7 +6,7 @@ import { WorkWithUsClient } from "@/app/work-with-us/work-with-us-client";
 export async function generateMetadata(): Promise<Metadata> {
   const title = "Get Involved";
   const description =
-    "Partner with the DFW AI builder community: sponsorships, venue partnerships, and AI credits.";
+    "Partner with the DFW AI builder community: community support, venues, and practical resources.";
   return {
     title,
     description,

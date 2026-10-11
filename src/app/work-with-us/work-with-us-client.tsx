@@ -5,12 +5,6 @@ import { motion } from "framer-motion";
 
 const partners = [
   {
-    name: "KiloClaw",
-    image: "/kiloclaw-logo.png",
-    url: "https://kilocode.pxf.io/OYnK0N",
-    tagline: "AI Coding Agent",
-  },
-  {
     name: "FTW DAO",
     image: "/ftwdao-logo.png",
     url: "https://fwtx.city",
@@ -19,6 +13,12 @@ const partners = [
 ];
 
 const venuePartners = [
+  {
+    name: "The Copper Wall",
+    image: "/copper-wall-venue.png",
+    url: undefined,
+    location: "Venue Partner",
+  },
   {
     name: "Spark Coworking",
     image: "/spark-arlington.png",
@@ -167,7 +167,7 @@ export function WorkWithUsClient() {
               { num: "01", label: "Attendee", title: "Come to a meetup", desc: "You don't need a finished project to take part. Browse the calendar, read the event details, and RSVP through Luma. Have a question before coming? Ask us.", action: "Ask about attending" },
               { num: "02", label: "Project Presenter", title: "Show what you're building", desc: "Share an agent, an automation, or a useful open-source tool. Tell us what it does, what you've learned, and what you'd like feedback on so we can discuss a presentation.", action: "Propose a project demo" },
               { num: "03", label: "Venue Host", title: "Offer a space in DFW", desc: "Have a place where builders can meet? Send the location, capacity, accessibility details, Wi-Fi setup, and available dates. We'll discuss whether the space fits a meetup.", action: "Offer a venue" },
-              { num: "04", label: "Sponsor", title: "Support useful community work", desc: "Help with a venue, refreshments, or practical resources for builders. Tell us what you can contribute. Support should help people learn and share, not turn the meetup into a sales pitch.", action: "Discuss community support" },
+              { num: "04", label: "Partner", title: "Support useful community work", desc: "Help with a venue, refreshments, or practical resources for builders. Tell us what you can contribute. Support should help people learn and share, not turn the meetup into a sales pitch.", action: "Discuss community support" },
             ].map((way, i) => (
               <motion.div
                 key={way.num}
@@ -209,7 +209,7 @@ export function WorkWithUsClient() {
         <div className="mx-auto max-w-6xl space-y-14">
           <div>
             <motion.p {...stagger(0)} className="font-mono text-[11px] uppercase tracking-[0.22em] text-dim mb-8">
-              Sponsors
+              Partners
             </motion.p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {partners.map((partner, i) => (
@@ -242,15 +242,17 @@ export function WorkWithUsClient() {
               Venue Partners
             </motion.p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {venuePartners.map((venue, i) => (
-                <motion.a
+              {venuePartners.map((venue, i) => {
+              const Card = venue.url ? motion.a : motion.div;
+              return (
+                <Card
                   key={venue.name}
                   href={venue.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   {...stagger(i + 1)}
                   className="group relative overflow-hidden rounded-lg border border-border aspect-video hover:border-accent transition-colors"
-                  aria-label={`Visit ${venue.name}`}
+                  aria-label={venue.url ? `Visit ${venue.name}` : venue.name}
                 >
                   <Image
                     src={venue.image}
@@ -262,8 +264,9 @@ export function WorkWithUsClient() {
                     <span className="block font-mono text-sm text-text">{venue.name}</span>
                     <span className="mt-1 block font-mono text-xs text-dim">{venue.location}</span>
                   </div>
-                </motion.a>
-              ))}
+                </Card>
+              );
+              })}
             </div>
           </div>
         </div>
@@ -280,7 +283,7 @@ export function WorkWithUsClient() {
           </h2>
           <p className="mt-5 text-base sm:text-lg text-muted">
             Check Luma for upcoming meetups and RSVP details. Use Contact for
-            questions, project demos, venues, and sponsorship. Discord is an
+            questions, project demos, venues, and partnerships. Discord is an
             optional place to connect between events.
           </p>
           <a
