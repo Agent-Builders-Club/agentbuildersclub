@@ -17,7 +17,7 @@ const venuePartners = [
     name: "The Copper Wall",
     image: "/copper-wall-venue.png",
     url: "https://thecopperwall.com/",
-    location: "Venue Partner",
+    location: "Fort Worth, TX",
   },
   {
     name: "Spark Coworking",
@@ -211,7 +211,7 @@ export function WorkWithUsClient() {
             <motion.p {...stagger(0)} className="font-mono text-[11px] uppercase tracking-[0.22em] text-dim mb-8">
               Partners
             </motion.p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="mx-auto grid max-w-xl grid-cols-1 gap-6">
               {partners.map((partner, i) => (
                 <motion.a
                   key={partner.name}

@@ -29,6 +29,11 @@ overrides:
   sharp@0.34.5: 0.35.5
   ws@8.20.0: 8.21.0
 
+patchedDependencies:
+  next@15.5.27:
+    hash: 5c08afdeefb09b6f3491beaa3a2fd0efd87b599f5cf909e80d828a2467790543
+    path: patches/next@15.5.27.patch
+
 importers:
 
   .:
@@ -41,7 +46,7 @@ importers:
         version: 12.38.0(@emotion/is-prop-valid@1.4.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       next:
         specifier: 15.5.27
-        version: 15.5.27(@playwright/test@1.63.0)(@types/node@20.19.37)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 15.5.27(patch_hash=5c08afdeefb09b6f3491beaa3a2fd0efd87b599f5cf909e80d828a2467790543)(@playwright/test@1.63.0)(@types/node@20.19.37)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       nodemailer:
         specifier: 10.1.0
         version: 10.1.0
@@ -63,7 +68,7 @@ importers:
         version: 3.3.5
       '@opennextjs/cloudflare':
         specifier: 1.20.10
-        version: 1.20.10(next@15.5.27(@playwright/test@1.63.0)(@types/node@20.19.37)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(wrangler@4.149.0(@types/node@20.19.37))
+        version: 1.20.10(next@15.5.27(patch_hash=5c08afdeefb09b6f3491beaa3a2fd0efd87b599f5cf909e80d828a2467790543)(@playwright/test@1.63.0)(@types/node@20.19.37)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(wrangler@4.149.0(@types/node@20.19.37))
       '@playwright/test':
         specifier: 1.63.0
         version: 1.63.0
@@ -5172,7 +5177,7 @@ snapshots:
   '@open-draft/until@2.1.0':
     optional: true
 
-  '@opennextjs/aws@4.1.9(next@15.5.27(@playwright/test@1.63.0)(@types/node@20.19.37)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))':
+  '@opennextjs/aws@4.1.9(next@15.5.27(patch_hash=5c08afdeefb09b6f3491beaa3a2fd0efd87b599f5cf909e80d828a2467790543)(@playwright/test@1.63.0)(@types/node@20.19.37)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))':
     dependencies:
       '@ast-grep/napi': 0.45.3
       '@aws-sdk/client-cloudfront': 3.984.0
@@ -5188,24 +5193,24 @@ snapshots:
       cookie: 1.1.1
       esbuild: 0.28.2
       express: 5.2.1
-      next: 15.5.27(@playwright/test@1.63.0)(@types/node@20.19.37)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      next: 15.5.27(patch_hash=5c08afdeefb09b6f3491beaa3a2fd0efd87b599f5cf909e80d828a2467790543)(@playwright/test@1.63.0)(@types/node@20.19.37)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       path-to-regexp: 6.3.0
       urlpattern-polyfill: 10.1.0
       yaml: 2.9.1
     transitivePeerDependencies:
       - supports-color
 
-  '@opennextjs/cloudflare@1.20.10(next@15.5.27(@playwright/test@1.63.0)(@types/node@20.19.37)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(wrangler@4.149.0(@types/node@20.19.37))':
+  '@opennextjs/cloudflare@1.20.10(next@15.5.27(patch_hash=5c08afdeefb09b6f3491beaa3a2fd0efd87b599f5cf909e80d828a2467790543)(@playwright/test@1.63.0)(@types/node@20.19.37)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(wrangler@4.149.0(@types/node@20.19.37))':
     dependencies:
       '@ast-grep/napi': 0.45.3
       '@dotenvx/dotenvx': 2.34.2
-      '@opennextjs/aws': 4.1.9(next@15.5.27(@playwright/test@1.63.0)(@types/node@20.19.37)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))
+      '@opennextjs/aws': 4.1.9(next@15.5.27(patch_hash=5c08afdeefb09b6f3491beaa3a2fd0efd87b599f5cf909e80d828a2467790543)(@playwright/test@1.63.0)(@types/node@20.19.37)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))
       ci-info: 4.4.0
       cloudflare: 4.5.0
       comment-json: 4.6.2
       enquirer: 2.4.1
       glob: 13.0.6
-      next: 15.5.27(@playwright/test@1.63.0)(@types/node@20.19.37)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      next: 15.5.27(patch_hash=5c08afdeefb09b6f3491beaa3a2fd0efd87b599f5cf909e80d828a2467790543)(@playwright/test@1.63.0)(@types/node@20.19.37)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       ts-tqdm: 0.8.6
       wrangler: 4.149.0(@types/node@20.19.37)
       yargs: 18.2.0
@@ -7423,7 +7428,7 @@ snapshots:
 
   negotiator@1.0.0: {}
 
-  next@15.5.27(@playwright/test@1.63.0)(@types/node@20.19.37)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+  next@15.5.27(patch_hash=5c08afdeefb09b6f3491beaa3a2fd0efd87b599f5cf909e80d828a2467790543)(@playwright/test@1.63.0)(@types/node@20.19.37)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
     dependencies:
       '@next/env': 15.5.27
       '@swc/helpers': 0.5.15
