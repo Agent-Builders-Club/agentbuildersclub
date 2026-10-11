@@ -16,7 +16,7 @@ const venuePartners = [
   {
     name: "The Copper Wall",
     image: "/copper-wall-venue.png",
-    url: undefined,
+    url: "https://thecopperwall.com/",
     location: "Venue Partner",
   },
   {
@@ -242,17 +242,15 @@ export function WorkWithUsClient() {
               Venue Partners
             </motion.p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {venuePartners.map((venue, i) => {
-              const Card = venue.url ? motion.a : motion.div;
-              return (
-                <Card
+              {venuePartners.map((venue, i) => (
+                <motion.a
                   key={venue.name}
                   href={venue.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   {...stagger(i + 1)}
                   className="group relative overflow-hidden rounded-lg border border-border aspect-video hover:border-accent transition-colors"
-                  aria-label={venue.url ? `Visit ${venue.name}` : venue.name}
+                  aria-label={`Visit ${venue.name}`}
                 >
                   <Image
                     src={venue.image}
@@ -264,9 +262,8 @@ export function WorkWithUsClient() {
                     <span className="block font-mono text-sm text-text">{venue.name}</span>
                     <span className="mt-1 block font-mono text-xs text-dim">{venue.location}</span>
                   </div>
-                </Card>
-              );
-              })}
+                </motion.a>
+              ))}
             </div>
           </div>
         </div>

@@ -54,6 +54,7 @@ for (const mode of [{ name: 'desktop', viewport: { width: 1440, height: 900 } },
       assert.equal(await page.getByText('FTW DAO', { exact: true }).count(), 1);
       const section = page.locator('section').filter({ has: page.getByText('Venue Partners', { exact: true }) });
       assert.equal(await section.getByText('The Copper Wall', { exact: true }).count(), 1);
+      assert.equal(await section.getByRole('link', { name: 'Visit The Copper Wall', exact: true }).getAttribute('href'), 'https://thecopperwall.com/');
       const img = section.locator('img[src*="copper-wall"]'); assert.equal(await img.count(), 1);
       await img.scrollIntoViewIfNeeded(); await img.waitFor({ state: 'visible' });
       await page.waitForFunction(() => { const i = document.querySelector('img[src*="copper-wall"]'); return i?.complete && i.naturalWidth > 0; });
