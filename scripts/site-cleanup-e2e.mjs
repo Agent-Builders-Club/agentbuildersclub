@@ -64,7 +64,12 @@ for (const mode of [{ name: 'desktop', viewport: { width: 1440, height: 900 } },
       assert.equal(await page.getByText('FTW DAO', { exact: true }).count(), 1);
       const section = page.locator('section').filter({ has: page.getByText('Venue Partners', { exact: true }) });
       assert.equal(await section.getByText('The Copper Wall', { exact: true }).count(), 1);
-      assert.equal(await section.getByRole('link', { name: 'Visit The Copper Wall', exact: true }).getAttribute('href'), 'https://thecopperwall.com/');
+      const copper = section.getByRole('link', { name: 'Visit The Copper Wall', exact: true });
+      assert.equal(await copper.getAttribute('href'), 'https://thecopperwall.com/');
+      assert.equal(await copper.getByText('Fort Worth, TX', { exact: true }).count(), 1);
+      const ftw = page.getByRole('link', { name: 'Visit FTW DAO', exact: true });
+      const center = await ftw.evaluate(el => { const r = el.getBoundingClientRect(); const p = el.closest('section').getBoundingClientRect(); return Math.abs((r.left + r.width / 2) - (p.left + p.width / 2)); });
+      assert(center <= 2, 'Single FTW DAO partner card must be centered');
       const img = section.locator('img[src*="copper-wall"]'); assert.equal(await img.count(), 1);
       await img.scrollIntoViewIfNeeded(); await img.waitFor({ state: 'visible' });
       await page.waitForFunction(() => { const i = document.querySelector('img[src*="copper-wall"]'); return i?.complete && i.naturalWidth > 0; });

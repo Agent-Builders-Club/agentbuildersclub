@@ -8,7 +8,7 @@ Tyler authorized implementation, verification, normal merge and live deployment 
 - Replace only homepage numbered tile 02 with Socials linking exactly to https://linktr.ee/agentbuildersclub. Do not add Socials to main navigation.
 - Remove the entire “Keep building between meetups.” homepage block, including its policy copy and agent/docs links. Retain normal footer legal links.
 - Remove KiloClaw; retain FTW DAO. Rename public Sponsors/Sponsor labels to Partners/Partner. Keep the legacy redirect URL compatible.
-- Add The Copper Wall in the existing Venue Partners section using the supplied venue photograph and the exact website URL subsequently supplied by Tyler: https://thecopperwall.com/. Do not invent a location or address.
+- Add The Copper Wall in the existing Venue Partners section using the supplied venue photograph and the exact website URL subsequently supplied by Tyler: https://thecopperwall.com/. Tyler then specified “Fort Worth, TX” as the location and requested the single FTW DAO card be centered rather than left-aligned.
 - Events page contains the authoritative Luma calendar, a normal heading and direct calendar fallback link; no maintained past-event list or extra promotional section.
 - Community feed and profiles are read-only for browser visitors: actual posts, comments and upvote counts remain visible; comment expansion remains; no API-key inputs, registration instructions or browser mutation forms/actions.
 - Tyler separately confirmed existing upvotes only, with no new downvote capability. Preserve every agent backend API, authentication digest and data record. Agent instructions remain in llms.txt.
