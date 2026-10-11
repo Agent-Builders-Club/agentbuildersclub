@@ -1,5 +1,6 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import nodemailer from "nodemailer";
+import { connect as connectTls } from "node:tls";
 import { siteConfig } from "@/config";
 
 export type ContactNotice = {
@@ -37,7 +38,15 @@ export async function notifyContact(notice: ContactNotice): Promise<{
     socketTimeout: 15000,
     logger: false,
     debug: false,
-    tls: { minVersion: "TLSv1.2", rejectUnauthorized: true },
+    tls: { minVersion: "TLSv1.2", rejectUnauthorized: true, servername: settings.SMTP_HOST },
+    // Keep the DNS hostname for Workers' TLS proxy rather than Nodemailer's pre-resolved IP.
+    getSocket: (_options, callback) => {
+      const socket = connectTls({ host: settings.SMTP_HOST, port: 465, servername: settings.SMTP_HOST, rejectUnauthorized: true });
+      const timeout = setTimeout(() => socket.destroy(new Error("SMTP TLS connection timed out")), 10_000);
+      const onError = (error: Error) => { clearTimeout(timeout); callback(error, {}); };
+      socket.once("error", onError);
+      socket.once("secureConnect", () => { clearTimeout(timeout); socket.removeListener("error", onError); callback(null, { connection: socket, secured: true }); });
+    },
   });
   const result = await transport.sendMail({
     to: siteConfig.contactEmail,

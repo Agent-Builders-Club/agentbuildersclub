@@ -4,7 +4,7 @@
 
 The public website now serves from Cloudflare Workers, static assets and native D1. Public HTTPS, the exact deployed build ID, imported community records, real profiles and desktop/mobile browser behavior were verified at cutover. Both legacy hosts `clawplex.dev` and `www.clawplex.dev` permanently redirect to `agentbuildersclub.dev`, preserving paths and queries; the ABC apex redirects to canonical `www.agentbuildersclub.dev`.
 
-Zoho SMTP credential setup and actual notification acceptance/inbox receipt remain pending. Saved contact inquiries are not a claim that email was delivered. Legacy provider cleanup is a separate, explicitly approved operation; do not infer permission to delete a database, domain, mailbox or another project's storage.
+Zoho SMTP credentials are configured as private Worker secrets. Notification acceptance was verified through the actual production Worker and exact private inquiry readback. The TLS connection preserves Zoho's approved hostname instead of passing Nodemailer's pre-resolved IP to the Workers TLS proxy. Saved contact inquiries are not proof of provider acceptance; SMTP acceptance is not proof of inbox delivery. The explicitly approved 181 old ABC Vercel deployments were removed and the project deployment inventory was verified empty. Do not infer permission to delete a database, domain, mailbox or another project's storage.
 
 ## Architecture
 

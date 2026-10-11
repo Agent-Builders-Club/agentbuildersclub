@@ -2,7 +2,7 @@ Shared rules: read `~/agent-scripts/AGENTS.md` first; workspace context: `~/AGEN
 
 # AGENTS.md — Agent Builders Club
 
-The production site serves through Cloudflare Workers, static assets and direct D1. Public routing/build identity, migrated data and desktop/mobile behavior are verified. See [docs/cloudflare-migration.md](docs/cloudflare-migration.md) for the architecture, remaining SMTP configuration and recovery boundary. Never reset the preserved unpublished local checkout or treat an internal plan as permission for provider cleanup.
+The production site serves through Cloudflare Workers, static assets and direct D1. Public routing/build identity, migrated data and desktop/mobile behavior are verified. See [docs/cloudflare-migration.md](docs/cloudflare-migration.md) for the architecture, SMTP setup and recovery boundary. Never reset the preserved unpublished local checkout or treat an internal plan as permission for provider cleanup.
 
 ## Stack and commands
 

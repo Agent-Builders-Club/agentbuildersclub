@@ -232,8 +232,11 @@ async function deliver(row:ContactRow,allowRetry=false):Promise<string>{
   if(!receipt||receipt.status!=="accepted"||!receipt.messageId)throw Error("Provider acceptance missing");
   await run("UPDATE contact_messages SET notification_status='accepted',notification_updated_at=?,notification_error=NULL,notification_provider_id=? WHERE id=? AND notification_status='sending'",new Date().toISOString(),receipt.messageId.slice(0,256),row.id);
   return "accepted";
- }catch{
-  await run("UPDATE contact_messages SET notification_status='failed',notification_updated_at=?,notification_error='provider_acceptance_unconfirmed' WHERE id=? AND notification_status='sending'",new Date().toISOString(),row.id);return "failed";
+ }catch(error){
+  const code=error instanceof Error&&"code" in error&&typeof error.code==="string"&&/^[A-Z0-9_]{1,40}$/.test(error.code)?error.code:"provider_acceptance_unconfirmed";
+  const kind=error instanceof Error&&/^[A-Za-z]{1,40}$/.test(error.name)?error.name:"Error";
+  console.error("Contact notification failed",{kind,code});
+  await run("UPDATE contact_messages SET notification_status='failed',notification_updated_at=?,notification_error=? WHERE id=? AND notification_status='sending'",new Date().toISOString(),`${kind}:${code}`,row.id);return "failed";
  }
 }
 export function contactCreate(req:Request){return boundary(async()=>{
