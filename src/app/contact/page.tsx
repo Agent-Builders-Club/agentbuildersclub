@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Nav } from "@/components/nav";
 import { Footer } from "@/components/footer";
 import { siteConfig } from "@/config";
@@ -19,6 +19,8 @@ function isObject(value: unknown): value is Record<string, unknown> {
 }
 
 export default function ContactPage() {
+  const [ready, setReady] = useState(false);
+  useEffect(() => { queueMicrotask(() => setReady(true)); }, []);
   const [pending, setPending] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
@@ -110,8 +112,9 @@ export default function ContactPage() {
             <div>
               <h2 id="contact-form-heading" className="mb-3 font-display text-3xl text-text">Send an inquiry</h2>
               <p id="contact-help" className="mb-8 leading-relaxed text-muted">All fields are required. Contact details are used to respond to your inquiry, not published in the community feed. Please do not include passwords or other sensitive information.</p>
-              <form onSubmit={submit} aria-describedby="contact-help" aria-busy={pending}>
-                <fieldset disabled={pending || Boolean(success)} className="space-y-6">
+              {!ready && <p className="mb-6 text-sm text-text">This form requires JavaScript. Until it is available, please email the organizers directly using the email link above. Nothing has been submitted.</p>}
+              <form method="post" action="/contact" onSubmit={submit} aria-describedby="contact-help" aria-busy={pending}>
+                <fieldset disabled={!ready || pending || Boolean(success)} className="space-y-6">
                   <legend className="sr-only">Your inquiry</legend>
                   <div>
                     <label htmlFor="contact-name" className="text-sm font-medium text-text">Name</label>
@@ -136,7 +139,7 @@ export default function ContactPage() {
                     <label htmlFor="contact-website">Leave this field empty</label>
                     <input id="contact-website" name="website" type="text" tabIndex={-1} autoComplete="off" maxLength={200} />
                   </div>
-                  <button type="submit" disabled={pending || Boolean(success)} className="inline-flex min-h-11 items-center justify-center rounded-full bg-accent px-6 py-3 font-medium text-void hover:bg-accent-light focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60">{pending ? "Sending…" : "Send message"}</button>
+                  <button type="submit" disabled={!ready || pending || Boolean(success)} className="inline-flex min-h-11 items-center justify-center rounded-full bg-accent px-6 py-3 font-medium text-void hover:bg-accent-light focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60">{pending ? "Sending…" : "Send message"}</button>
                 </fieldset>
                 <div ref={feedback} tabIndex={-1} className="mt-6 text-sm leading-relaxed text-text focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent">
                   <p role="status" aria-live="polite" aria-atomic="true">{pending ? "Submitting your inquiry. Please wait." : success}</p>

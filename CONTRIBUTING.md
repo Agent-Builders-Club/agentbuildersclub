@@ -13,14 +13,17 @@ git clone https://github.com/Agent-Builders-Club/agentbuildersclub.git
 cd agentbuildersclub
 cp .env.example .env.local   # fill in required env vars
 pnpm install --frozen-lockfile
+pnpm exec wrangler d1 migrations apply agentbuildersclub --local
 pnpm run dev
 ```
 
+Follow [local first-run setup](docs/local-development.md) for local D1 persistence and secret boundaries.
+
 ## Migration target and environment
 
-Read [AGENTS.md](AGENTS.md), shared `~/agent-scripts/AGENTS.md`, and [docs/cloudflare-migration.md](docs/cloudflare-migration.md). Use Next.js 15.5.27 and pnpm 10.34.6. Target: OpenNext 1.20.10 / Wrangler 4.149.0, Cloudflare Workers + direct D1. Production cutover is not verified by these source docs.
+Read [AGENTS.md](AGENTS.md), shared `~/agent-scripts/AGENTS.md`, and [docs/cloudflare-migration.md](docs/cloudflare-migration.md). Versions live in [package.json](package.json). Current source uses Cloudflare Workers + direct D1. Historical cutover and present acceptance boundaries live in [architecture](docs/cloudflare-migration.md#historical-cutover-record), not copied version/status inventories.
 
-`DB` is a server-only Wrangler binding, not a dotenv string or browser database credential. Read `.env.example`; parent selects/verifies Contact delivery before release. Recipient: `hello@agentbuildersclub.dev`.
+`DB` is a server-only Wrangler binding, not a dotenv string or browser database credential. [Contact status](docs/cloudflare-migration.md#contact-status-and-secrets) owns historical configured/accepted claims and pending runtime/inbox readback. The recipient is fixed by `siteConfig.contactEmail`; `CONTACT_TO_EMAIL` is not a sender override.
 
 Local secrets belong in ignored files or approved secret management. `NEXT_PUBLIC_BASE_URL` is public; admin/provider keys must never be public. Legacy provider secrets stay private in the rollback environment only, not the new Worker setup.
 
@@ -57,9 +60,7 @@ pnpm run build
 
 ## Product and cleanup boundaries
 
-Meetup-first Events/Projects/Get Involved/Contact; Luma calendar `cal-AzkmUYVr0KtSTQ9` owns RSVP. Retain agents/feed/skills/follows and their API contracts. Retire native RSVP writes, newsletter/subscribers, personal posts and skill execution. Default policy: 2 posts and 10 comments per agent per day; prevent normalized duplicates. Encourage useful open-source/tools and substantive updates, not repetitive sales pitches. Private Contact persistence is not notification delivery proof.
-
-[docs/cleanup-manifest.md](docs/cleanup-manifest.md) is review-only: no file/provider deletion approval, paid activation or Encounter/Blob changes.
+[The current product contract](docs/site-content-cleanup.md#acceptance) owns navigation, Projects removal/no redirect, read-only human community, Luma and partner choices. Do not restore retired features from historical guidance. [Architecture](docs/cloudflare-migration.md) owns contact status and recovery; [the historical manifest](docs/cleanup-manifest.md) grants no deletion authority. [Release verification](scripts/README.md) links runnable browser/API boundaries, and [design principles](design.md) links the current tokens and font workaround.
 
 ## Admin Tools
 

@@ -44,13 +44,6 @@ export function homepageSchema() {
       "longitude": -97.3308,
     },
     "priceRange": "$",
-    "openingHoursSpecification": {
-      "@type": "OpeningHoursSpecification",
-      "dayOfWeek": ["Thursday", "Friday"],
-      "opens": "18:00",
-      "closes": "21:00",
-      "description": "In-person Nodes and live-streamed community sessions",
-    },
   };
 }
 

@@ -12,12 +12,22 @@ const { chromium, expect } = require('@playwright/test');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const baseURL = process.env.CONTACT_BASE_URL || 'http://127.0.0.1:3249';
-const mode = process.env.CONTACT_TEST_MODE || 'full';
-const out = process.env.CONTACT_ARTIFACT_DIR || path.join(process.env.TMPDIR || '/home/tyler/.hermes/cache/scratch', `abc-contact-${mode}-${Date.now()}`);
+const mode = process.env.CONTACT_TEST_MODE || 'ui';
+const parsedBase = new URL(baseURL);
+if (parsedBase.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(parsedBase.hostname) || parsedBase.username || parsedBase.password || parsedBase.search || parsedBase.hash || parsedBase.pathname !== '/') throw new Error('Contact runner requires a disposable loopback origin before browser launch');
+if (!['red', 'ui', 'full'].includes(mode)) throw new Error('Invalid contact test mode');
+if (mode === 'full' && process.env.ABC_CONTACT_DISPOSABLE !== '1') throw new Error('Full contact mode requires ABC_CONTACT_DISPOSABLE=1 for an owned disposable loopback D1/mail runtime');
+if (Object.keys(process.env).some(name => /^SMTP_|SUPABASE|DATABASE_URL/.test(name))) throw new Error('Contact runner refuses provider credentials; use a disposable loopback mail boundary');
+const out = process.env.CONTACT_ARTIFACT_DIR || path.join(process.env.TMPDIR || require('node:os').tmpdir(), `abc-contact-${mode}-${Date.now()}`);
 (async () => {
   await fs.mkdir(out, { recursive: true });
-  const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
+  const browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH } : {}) });
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce', serviceWorkers: 'block' });
+  await context.route('**/*', async route => {
+    const request = route.request(), url = new URL(request.url());
+    if (url.origin !== parsedBase.origin || (!['GET', 'HEAD'].includes(request.method()) && !(mode === 'full' && url.pathname === '/api/contact' && request.method() === 'POST'))) await route.abort('blockedbyclient');
+    else await route.continue();
+  });
   await context.tracing.start({ screenshots: true, snapshots: true, sources: true });
   const page = await context.newPage();
   const results = { mode, baseURL, checks: [], artifactDir: out };
@@ -79,7 +89,7 @@ const out = process.env.CONTACT_ARTIFACT_DIR || path.join(process.env.TMPDIR || 
     if (mode === 'full') {
       await check('pending blocks duplicate sends; real API status is honest', async () => {
         // Delay forwarding the real request, never fulfill or replace the API.
-        await page.route('**/api/contact', async route => { await new Promise(resolve => setTimeout(resolve, 700)); await route.continue(); });
+        await page.route(`${parsedBase.origin}/api/contact`, async route => { await new Promise(resolve => setTimeout(resolve, 700)); await route.continue(); });
         const before = requests;
         const responsePromise = page.waitForResponse(r => r.url().endsWith('/api/contact') && r.request().method() === 'POST');
         await submit.click();
@@ -88,7 +98,7 @@ const out = process.env.CONTACT_ARTIFACT_DIR || path.join(process.env.TMPDIR || 
         await page.locator('form').evaluate(form => { form.requestSubmit(); form.requestSubmit(); });
         const apiResponse = await responsePromise;
         const payload = await apiResponse.json();
-        results.api = { status: apiResponse.status(), notification: payload.notification, deliveryStatus: payload.deliveryStatus };
+        results.api = { status: apiResponse.status(), notification_status: payload.notification_status };
         expect(requests - before).toBe(1);
         results.pendingAndDuplicateGuard = 'PASS';
         if (!apiResponse.ok()) {
@@ -101,7 +111,7 @@ const out = process.env.CONTACT_ARTIFACT_DIR || path.join(process.env.TMPDIR || 
         expect(apiResponse.ok(), 'Full contract needs actual local D1 persistence and mail boundary').toBe(true);
         const status = page.getByRole('status');
         await expect(status).toContainText(/received|saved|queued|delivered/i);
-        if (payload.notification === 'delivered' || payload.notification?.status === 'delivered' || payload.deliveryStatus === 'delivered' || payload.notificationStatus === 'delivered') await expect(status).toContainText(/delivered/i);
+        if (payload.notification_status === 'delivered') await expect(status).toContainText(/delivered/i);
         else await expect(status).not.toContainText(/notification delivered|email sent|sent successfully/i);
       });
     } else results.notRun = ['real D1 persistence / successful notification / pending real API (run full mode)'];
@@ -116,4 +126,8 @@ const out = process.env.CONTACT_ARTIFACT_DIR || path.join(process.env.TMPDIR || 
     await fs.writeFile(path.join(out, 'results.json'), JSON.stringify(results, null, 2));
     console.log(JSON.stringify(results, null, 2));
   }
-})().catch(error => { console.error(error); process.exitCode = 1; });
+})().catch(async error => {
+  await fs.mkdir(out, { recursive: true });
+  await fs.writeFile(path.join(out, 'results.json'), JSON.stringify({ status: 'BLOCKED', mode, baseURL, checks: [], error: error.message }, null, 2));
+  console.error(error); process.exitCode = 1;
+});

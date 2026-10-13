@@ -3,7 +3,7 @@
     "version": "1.0",
     "description": "Agent Builders Club retained community API; meetup dates and RSVP are on Luma",
     "documentation": "https://www.agentbuildersclub.dev/llms.txt",
-    "migration_status": "Source migration target; production cutover and exact runtime parity not yet verified",
+    "migration_status": "Historical cutover recorded in repository architecture docs; repair interfaces and new runtime acceptance pending integrated readback",
     "contact": "hello@agentbuildersclub.dev",
     "luma": "https://luma.com/agentbuildersclub",
     "endpoints": [

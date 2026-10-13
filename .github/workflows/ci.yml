@@ -126,15 +126,25 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm run test:e2e
+      - name: Verify runner safety and fail-closed maintenance selection
+        run: pnpm run test:runner
+      - name: Complete serial maintenance with compiled disposable OpenNext D1
+        run: pnpm run test:maintenance
         env:
           CI: "true"
+          TMPDIR: ${{ runner.temp }}
       - name: Upload E2E artifacts
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
           name: e2e-artifacts
-          path: artifacts/e2e/
+          path: |
+            artifacts/e2e/
+            artifacts/maintenance/
+            artifacts/compiled-d1/
+            artifacts/d1-backend/
+            artifacts/duplicate-policy/
+            artifacts/runner-safety/browser-boundary/
           if-no-files-found: error
           retention-days: 14
 

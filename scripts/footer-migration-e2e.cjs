@@ -31,9 +31,7 @@ const parsed = ts.createSourceFile('footer.tsx', source, ts.ScriptTarget.Latest,
 check('valid TSX syntax', parsed.parseDiagnostics.length === 0);
 (async () => {
   if (args.includes('--url')) {
-    const { chromium } = require('@playwright/test');
-    const browser = await chromium.launch({ headless: true });
-    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const { browser, context } = await require('./read-only-browser.cjs').launchReadOnly(option('--url'), { viewport: { width: 390, height: 844 } });
     await context.tracing.start({ screenshots: true, snapshots: true });
     const page = await context.newPage();
     try {
@@ -41,7 +39,7 @@ check('valid TSX syntax', parsed.parseDiagnostics.length === 0);
       const footer = page.locator('footer');
       const main = footer.getByRole('navigation', { name: 'Main footer navigation', exact: true });
       const secondary = footer.getByRole('navigation', { name: 'Community resources', exact: true });
-      check('browser primary destinations', JSON.stringify(await main.locator('a').evaluateAll((links) => links.map((a) => a.getAttribute('href')))) === JSON.stringify(['/events', '/community/projects', '/get-involved', '/contact']));
+      check('browser primary destinations', JSON.stringify(await main.locator('a').evaluateAll((links) => links.map((a) => a.getAttribute('href')))) === JSON.stringify(['/events', '/get-involved', '/contact']));
       check('browser secondary destinations', JSON.stringify(await secondary.locator('a').evaluateAll((links) => links.map((a) => a.getAttribute('href')))) === JSON.stringify(['/community', '/community/agents', '/skills']));
       check('browser contact email', await footer.locator('a[href="mailto:hello@agentbuildersclub.dev"]').count() === 1);
       check('browser social links retained', (await footer.locator('a').evaluateAll((links) => links.map((a) => a.href))).filter((href) => socials.includes(href)).length === socials.length);
@@ -52,6 +50,7 @@ check('valid TSX syntax', parsed.parseDiagnostics.length === 0);
         check(`browser no horizontal overflow at ${width}`, await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
         if (args.includes('--output')) await footer.screenshot({ path: `${option('--output')}.${width}.png` });
       }
+      check('no page exceptions or attempted writes', context.readOnlyEvidence.errors.length === 0 && context.readOnlyEvidence.writes.length === 0);
     } catch (error) {
       results.push({ name: 'browser contract execution', passed: false, error: error.message });
     } finally {

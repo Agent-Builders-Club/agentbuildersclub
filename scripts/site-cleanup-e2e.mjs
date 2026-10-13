@@ -1,24 +1,63 @@
-import { chromium } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const { launchReadOnly, localOrigin } = require('./read-only-browser.cjs');
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 
-const base = process.env.ABC_QA_URL || 'https://www.agentbuildersclub.dev';
+const base = process.env.ABC_QA_URL;
+if (!base) throw Error('ABC_QA_URL must name the disposable loopback runtime');
+localOrigin(base);
 const label = process.env.ABC_QA_LABEL || 'site-cleanup';
 assert(/^[a-z0-9-]+$/i.test(label));
-const dir = path.resolve('artifacts/site-cleanup', label);
+const dir = path.resolve(process.env.ABC_QA_OUTPUT || 'artifacts/site-cleanup', label);
 fs.mkdirSync(dir, { recursive: true });
-const port = fs.readFileSync(path.join(os.homedir(), '.config/chromium-browser/DevToolsActivePort'), 'utf8').split('\n')[0];
-const browser = await chromium.connectOverCDP(process.env.ABC_CDP_URL || `http://127.0.0.1:${port}`);
+const startedAt = new Date().toISOString();
 const results = [];
 let failed = false;
-for (const mode of [{ name: 'desktop', viewport: { width: 1440, height: 900 } }, { name: 'mobile', viewport: { width: 390, height: 844 } }]) {
-  const context = await browser.newContext(mode);
+const allEvidence = [];
+try {
+for (const mode of [{ name: 'desktop', viewport: { width: 1440, height: 900 } }, { name: 'mobile', viewport: { width: 390, height: 844 } }, { name: 'small-mobile', viewport: { width: 320, height: 740 } }]) {
+  const { browser, context } = await launchReadOnly(base, { viewport: mode.viewport, reducedMotion: 'reduce', timezoneId: 'America/Chicago' });
   await context.tracing.start({ screenshots: true, snapshots: true });
   const page = await context.newPage();
-  const writes = [];
-  page.on('request', r => { const url = new URL(r.url()); if (url.origin === new URL(base).origin && url.pathname.startsWith('/api/') && !['GET', 'HEAD'].includes(r.method())) writes.push(r.method() + ' ' + url.pathname); });
+  const { writes, errors } = context.readOnlyEvidence;
+  const identities = [];
+  allEvidence.push({ mode: mode.name, identities, writes, errors });
+  async function verifyPost(post, profile = false) {
+    // Parent-owned UI seam: both production post cards expose their existing
+    // durable response ID as data-post-id; no index/text-derived identity.
+    const card = page.locator(`[data-post-id=${JSON.stringify(post.id)}]`);
+    await expect(card).toHaveCount(1);
+    await expect(card.getByText(post.content, { exact: true })).toBeVisible();
+    const votes = profile ? post.upvotes : post.upvote_count;
+    const vote = card.locator('[data-vote-count]');
+    await expect(vote).toHaveCount(1);
+    await expect(vote).toHaveAttribute('data-vote-count', String(votes));
+    await expect(vote).toHaveAttribute('aria-label', `${votes} upvotes`);
+    await expect(vote).toHaveText(`${votes} upvotes`);
+    const toggle = card.getByRole('button', { name: /(?:Collapse|Expand) comments/ });
+    await expect(toggle).toHaveText(String(post.comment_count));
+    await expect(toggle).toHaveAccessibleName(/^(Collapse|Expand) comments/);
+    identities.push({ mode: mode.name, surface: profile ? 'profile' : 'feed', postId: post.id, votes, comments: post.comment_count });
+    return { card, toggle };
+  }
+  async function verifyComments(post, profile = false) {
+    const { card, toggle } = await verifyPost(post, profile);
+    const response = await context.request.get(base + '/api/community/comments?post_id=' + encodeURIComponent(post.id));
+    assert.equal(response.status(), 200);
+    const comments = await response.json();
+    assert(comments.length > 0, 'Real comments required');
+    for (const comment of comments) await expect(card.locator(`[data-comment-id=${JSON.stringify(comment.id)}]`).getByText(comment.content, { exact: true })).toBeVisible();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    for (const comment of comments) await expect(card.locator(`[data-comment-id=${JSON.stringify(comment.id)}]`)).toHaveCount(0);
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    for (const comment of comments) await expect(card.locator(`[data-comment-id=${JSON.stringify(comment.id)}]`).getByText(comment.content, { exact: true })).toBeVisible();
+  }
   async function capture(name) {
     const height = Math.min(await page.evaluate(() => document.documentElement.scrollHeight), 30000);
     for (let y = 0; y < height; y += mode.viewport.height * 0.75) {
@@ -32,7 +71,7 @@ for (const mode of [{ name: 'desktop', viewport: { width: 1440, height: 900 } },
   async function check(name, action) {
     try { await action(); results.push({ mode: mode.name, name, passed: true }); }
     catch (error) { failed = true; results.push({ mode: mode.name, name, passed: false, error: error.message }); }
-    fs.writeFileSync(path.join(dir, 'results.json'), JSON.stringify({ base, passed: !failed, results }, null, 2));
+    fs.writeFileSync(path.join(dir, 'results.json'), JSON.stringify({ base, startedAt, passed: !failed, results, identities, writes, errors }, null, 2));
   }
   try {
     await check('homepage-removals-and-socials', async () => {
@@ -43,7 +82,8 @@ for (const mode of [{ name: 'desktop', viewport: { width: 1440, height: 900 } },
       const socials = page.getByRole('link', { name: 'Socials', exact: true }); assert.equal(await socials.count(), 1);
       assert.equal(await socials.getAttribute('href'), 'https://linktr.ee/agentbuildersclub');
       assert.match(await socials.innerText(), /02/);
-      assert.equal(await page.getByRole('navigation', { name: 'Main', exact: true }).getByRole('link', { name: 'Projects', exact: true }).count(), 0);
+      await expect(page.getByRole('navigation', { name: 'Main navigation', exact: true })).toHaveCount(1);
+      assert.equal(await page.getByRole('navigation', { name: 'Main navigation', exact: true }).getByRole('link', { name: 'Projects', exact: true }).count(), 0);
       await capture('home');
     });
     await check('projects-route-eliminated', async () => {
@@ -52,7 +92,8 @@ for (const mode of [{ name: 'desktop', viewport: { width: 1440, height: 900 } },
     await check('events-calendar-only', async () => {
       await page.goto(base + '/events', { waitUntil: 'networkidle' });
       assert.equal(await page.getByText('Past Events', { exact: true }).count(), 0);
-      assert.equal(await page.locator('iframe[src*="cal-AzkmUYVr0KtSTQ9"]').count(), 1);
+      await expect(page.locator('iframe')).toHaveAttribute('src', 'https://luma.com/embed/calendar/cal-AzkmUYVr0KtSTQ9/events');
+      await expect(page.getByRole('link', { name: 'Open the calendar on Luma', exact: true })).toHaveAttribute('href', 'https://luma.com/agentbuildersclub');
       assert.equal(await page.getByText('DFW Node 06 — Hermes', { exact: true }).count(), 0);
       await capture('events');
     });
@@ -85,10 +126,9 @@ for (const mode of [{ name: 'desktop', viewport: { width: 1440, height: 900 } },
       assert.equal(await page.locator('input,textarea,form').count(), 0);
       assert.equal(await page.getByRole('button', { name: /upvote|downvote|report/i }).count(), 0);
       const post = posts.find(p => p.comment_count > 0); assert(post, 'Real commented post required');
-      const comments = await page.evaluate(async id => (await fetch('/api/community/comments?post_id=' + encodeURIComponent(id))).json(), post.id);
-      assert(comments.length > 0);
-      await page.getByText(comments[0].content, { exact: true }).first().waitFor({ state: 'visible' });
-      assert.equal(await page.locator('[data-vote-count]').count(), posts.length);
+      await expect(page.locator('[data-vote-count]')).toHaveCount(posts.length);
+      for (const entry of posts) await verifyPost(entry);
+      await verifyComments(post);
       await capture('community');
     });
     await check('agent-profile-read-only', async () => {
@@ -96,18 +136,32 @@ for (const mode of [{ name: 'desktop', viewport: { width: 1440, height: 900 } },
       const r = await page.goto(base + '/community/agents/' + encodeURIComponent(id), { waitUntil: 'networkidle' }); assert.equal(r.status(), 200);
       assert.equal(await page.locator('input,textarea,form').count(), 0);
       assert.equal(await page.getByText('Agent API key', { exact: true }).count(), 0);
-      assert(await page.locator('[data-vote-count]').count() > 0);
+      await expect(page.getByRole('button', { name: /upvote|downvote|report|follow|post comment/i })).toHaveCount(0);
+      const response = await context.request.get(base + '/api/community/agents/' + encodeURIComponent(id));
+      assert.equal(response.status(), 200); const profile = await response.json();
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText(profile.agent.name);
+      assert(profile.posts.length > 0, 'Real profile posts required');
+      await expect(page.locator('[data-vote-count]')).toHaveCount(profile.posts.length);
+      for (const post of profile.posts) await verifyPost(post, true);
+      const commented = profile.posts.find(post => post.comment_count > 0); assert(commented, 'Real commented profile post required');
+      await verifyComments(commented, true);
       await capture('profile');
     });
     await check('agent-discovery-preserved-and-no-browser-api-writes', async () => {
       const r = await context.request.get(base + '/llms.txt'); assert.equal(r.status(), 200);
       const text = await r.text(); assert.match(text, /register/i); assert.match(text, /upvote/i);
       assert(!text.includes('/community/projects'));
-      assert.deepEqual(writes, []);
+      assert.deepEqual(writes, []); assert.deepEqual(errors, []);
+      const sitemap = await context.request.get(base + '/sitemap.xml'); assert.equal(sitemap.status(), 200);
+      assert(!(await sitemap.text()).includes('/community/projects'));
     });
   } finally {
-    await context.tracing.stop({ path: path.join(dir, `${mode.name}-trace.zip`) }); await context.close();
+    await context.tracing.stop({ path: path.join(dir, `${mode.name}-trace.zip`) }); await context.close(); await browser.close();
+    if (writes.length || errors.length) failed = true;
   }
 }
-console.log(JSON.stringify({ base, passed: !failed, checks: results.length, evidence: dir }));
-process.exit(failed ? 1 : 0);
+} catch (error) { failed = true; results.push({ name: 'harness-prerequisite', passed: false, error: error.message }); }
+const passed = !failed && results.length === 21 && results.every(row => row.passed);
+fs.writeFileSync(path.join(dir, 'results.json'), JSON.stringify({ base, startedAt, passed, checks: results.length, results, evidence: allEvidence }, null, 2));
+console.log(JSON.stringify({ base, passed, checks: results.length, evidence: dir }));
+process.exit(passed ? 0 : 1);

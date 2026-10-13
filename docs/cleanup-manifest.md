@@ -1,4 +1,6 @@
-# ABC cleanup manifest — review only
+# ABC cleanup manifest — historical review only
+
+This is the pre-cutover candidate review recorded in migration commit `a840b85` (2026-10-10). Every candidate/pending statement below describes that historical review, not present inventory or a fresh instruction. Later source cleanup and provider operations are recorded separately in [architecture/cutover history](cloudflare-migration.md#historical-cutover-record). Read current [product boundaries](site-content-cleanup.md#acceptance) and [release verification](../scripts/README.md) instead of replaying this list. Exact private receipts, not this table, establish completed provider operations and approval. Existing historical text is preserved as evidence; no candidate creates current deletion authority.
 
 **No files, data or provider resources have been deleted by this documentation task. This is not approval to delete them.** Scope is `/home/tyler/agentbuildersclub-migration` unless a provider resource is explicitly named. Every destructive action needs exact owner approval after runtime cutover and recovery are verified. Use `trash`, not `rm`, for approved local deletion. Do not apply this manifest to the original dirty checkout or Encounter.
 
@@ -59,4 +61,4 @@ No free-plan/billing status is inferred from a source config. Pause for billing 
 
 For each approved operation record: exact path or provider resource ID, owner approval, action, prerequisite recovery evidence, exact command/API target, outcome, and readback verification. Keep secret/private values out of public artifacts. Until these records exist all items remain pending review, not performed cleanup.
 
-Rollback: [cloudflare-migration.md](cloudflare-migration.md#release-and-rollback-reference). Once D1 accepts writes, preserve/reconcile its accepted delta before restoring legacy writes; a routing flip alone is not data-safe recovery.
+Rollback: [cloudflare-migration.md](cloudflare-migration.md#data-conservation-and-recovery). Once D1 accepts writes, preserve/reconcile its accepted delta before restoring legacy writes; a routing flip alone is not data-safe recovery.

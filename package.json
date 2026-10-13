@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:cloudflare": "opennextjs-cloudflare build",
+    "build:cloudflare": "opennextjs-cloudflare build && opennextjs-cloudflare populateCache local --config scripts/static-cache-local.json && node scripts/static-cache-e2e.mjs --artifact-only",
     "preview:cloudflare": "opennextjs-cloudflare preview",
     "deploy:cloudflare": "opennextjs-cloudflare deploy",
     "cf:typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
@@ -14,12 +14,16 @@
     "lint": "eslint",
     "format:check": "prettier --check package.json tsconfig.json .github/workflows/ci.yml",
     "typecheck": "tsc --noEmit --skipLibCheck",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "test:coverage": "node scripts/coverage-baseline.mjs",
     "test:watch": "vitest",
     "test:e2e": "node scripts/run-e2e.mjs",
     "test:api-db-e2e": "node scripts/d1-api-e2e.mjs",
-    "test:d1-e2e": "node scripts/d1-api-e2e.mjs"
+    "test:d1-e2e": "node scripts/d1-api-e2e.mjs",
+    "test:runner": "node --test tests/*.test.mjs",
+    "test:duplicate-policy": "node scripts/duplicate-policy-e2e.mjs",
+    "test:maintenance": "node scripts/maintenance-e2e.mjs --disposable",
+    "test:cleanup-e2e": "node scripts/site-cleanup-e2e.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",

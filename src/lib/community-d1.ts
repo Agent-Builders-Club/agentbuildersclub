@@ -32,14 +32,28 @@ const stats="(SELECT count(*) FROM public_posts WHERE agent_id=agents.id) post_c
 // Match public_posts/public_comments expiry semantics; filter before LIMIT/counts.
 const publicAgentVisibility="NOT(muted=1 AND(muted_until IS NULL OR julianday(muted_until)>julianday('now')))";
 export async function getPublicAgent(id:string):Promise<PublicAgent|null> { const r=await first<AgentRow>(`SELECT ${PUBLIC_AGENT_COLUMNS},${stats} FROM agents WHERE id=? AND ${publicAgentVisibility}`,id);return r?publicAgent(r):null; }
-export async function getAgents():Promise<PublicAgent[]> { return (await all<AgentRow>(`SELECT ${PUBLIC_AGENT_COLUMNS},${stats} FROM agents WHERE ${publicAgentVisibility} ORDER BY created_at DESC,id DESC LIMIT 100`)).map(publicAgent); }
+export async function getAgents(offset=0,limit=100):Promise<PublicAgent[]> { return (await all<AgentRow>(`SELECT ${PUBLIC_AGENT_COLUMNS},${stats} FROM agents WHERE ${publicAgentVisibility} ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?`,limit,offset)).map(publicAgent); }
+export async function getAgentTotal():Promise<number> {return (await first<{total:number}>(`SELECT count(*) total FROM agents WHERE ${publicAgentVisibility}`))!.total;}
+export async function* getMatchingAgents(keywords:string[]):AsyncGenerator<PublicAgent> {
+ // Relevance and availability precede each query bound, never a global discovery cap.
+ // SQLite lower() is ASCII-only: include non-ASCII rows for exact JS scoring below.
+ const relevance=`EXISTS(SELECT 1 FROM json_each(?) wanted WHERE instr(lower(agents.description),wanted.value)>0 OR EXISTS(SELECT 1 FROM json_each(agents.skills) skill WHERE instr(lower(skill.value),wanted.value)>0 OR instr(wanted.value,lower(skill.value))>0)) OR agents.description GLOB '*[^ -~]*' OR agents.skills GLOB '*[^ -~]*'`;
+ for(let offset=0;;offset+=500){
+  const rows=await all<AgentRow>(`SELECT ${PUBLIC_AGENT_COLUMNS} FROM agents WHERE ${publicAgentVisibility} AND availability<>'offline' AND (${relevance}) ORDER BY created_at DESC,id DESC LIMIT 500 OFFSET ?`,JSON.stringify(keywords),offset);
+  for(const row of rows)yield publicAgent(row);
+  if(rows.length<500)return;
+ }
+}
 export async function updateAgentMuted(id:string,muted:boolean):Promise<boolean> { return (await run("UPDATE agents SET muted=?,muted_until=NULL WHERE id=?",Number(muted),id)).meta.changes>0; }
 export async function deleteAgent(id:string):Promise<boolean> { return updateAgentMuted(id,true); }
 export async function createPersonalPost(data:{agent_id:string;content:string}):Promise<PersonalPost|null> { void data;return null; }
 export async function getPersonalPostsByAgent(agentId:string):Promise<PersonalPost[]> { void agentId;return []; }
 export async function deletePost(id:string,agentId:string):Promise<boolean> { return (await run("UPDATE posts SET hidden=1,hidden_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),hidden_reason='author removal' WHERE id=? AND agent_id=?",id,agentId)).meta.changes>0; }
 export function normalizeContent(content:string):string { return content.normalize("NFKC").replace(/[\u200B-\u200D\uFEFF]/g,"").trim().toLocaleLowerCase("en-US").replace(/\s+/gu," "); }
-export class CommunityError extends Error { constructor(public status:number,message:string){super(message);} }
+export class CommunityError extends Error { constructor(public status:number,message:string,public retryAfter?:number){super(message);} }
+export function secondsUntilUtcMidnight():number {
+ const now=Date.now();return Math.max(1,Math.ceil((Date.parse(new Date(now).toISOString().slice(0,10)+"T00:00:00.000Z")+86400000-now)/1000));
+}
 export type WriteData={agent_id:string;content:string;image_url?:string;parent_id?:string;post_id?:string;request_key?:string|null};
 type StoredWrite=Post & {post_id?:string;request_hash:string;request_key:string|null};
 export async function writeContent(kind:"post"|"comment",data:WriteData):Promise<{row:StoredWrite;replayed:boolean}> {
@@ -48,8 +62,12 @@ export async function writeContent(kind:"post"|"comment",data:WriteData):Promise
  const replay=async()=>data.request_key?first<StoredWrite>(`SELECT * FROM ${table} WHERE agent_id=? AND request_key=?`,data.agent_id,data.request_key):null;
  const checkReplay=(row:StoredWrite)=>{if(row.request_hash!==requestHash)throw new CommunityError(409,"Idempotency key already used for a different request");return {row,replayed:true};};
  const prior=await replay();if(prior)return checkReplay(prior);
- const old=await all<{content:string}>(`SELECT content FROM ${table} WHERE agent_id=? AND normalized_content IS NULL ORDER BY created_at DESC LIMIT 2000`,data.agent_id);
- if(old.some(r=>normalizeContent(r.content)===normalized)||await first(`SELECT id FROM ${table} WHERE agent_id=? AND normalized_content=?`,data.agent_id,normalized))throw new CommunityError(409,"Duplicate content from this author");
+ const scope=kind==="comment"?" AND post_id=? AND julianday(created_at)>julianday('now','-24 hours')":"";
+ const scopeArgs=kind==="comment"?[data.post_id!]:[];
+ // Legacy NULL fingerprints stay untouched. Scope before normalization; do not
+ // truncate recent imported history and silently admit its oldest duplicate.
+ const old=await all<{content:string}>(`SELECT content FROM ${table} WHERE agent_id=? AND normalized_content IS NULL${scope} ORDER BY created_at DESC${kind==="post"?" LIMIT 2000":""}`,data.agent_id,...scopeArgs);
+ if(old.some(r=>normalizeContent(r.content)===normalized)||await first(`SELECT id FROM ${table} WHERE agent_id=? AND normalized_content=?${scope}`,data.agent_id,normalized,...scopeArgs))throw new CommunityError(409,"Duplicate content from this author");
  // Review signal only. No blanket URL prohibition or automatic promotional-content hiding.
  let reviewReason:string|null=null;
  if(/\b(buy now|limited offer|book a demo|subscribe now|pricing|discount)\b/i.test(data.content)){
@@ -66,7 +84,7 @@ export async function writeContent(kind:"post"|"comment",data:WriteData):Promise
   const message=String(e);
   if(message.includes("AGENT_MUTED"))throw new CommunityError(403,"Agent is muted");
   if(message.includes("TARGET_NOT_FOUND")||message.includes("FOREIGN KEY"))throw new CommunityError(404,"Target not found");
-  if(message.includes("DAILY_LIMIT"))throw new CommunityError(429,"Daily limit reached. Retry after midnight UTC");
+  if(message.includes("DAILY_LIMIT"))throw new CommunityError(429,"Daily limit reached. Retry after midnight UTC",secondsUntilUtcMidnight());
   if(message.includes("UNIQUE constraint")||message.includes("DUPLICATE_CONTENT"))throw new CommunityError(409,"Duplicate content from this author");throw e;
  }
  const row=await first<StoredWrite>(`SELECT * FROM ${table} WHERE id=?`,id);if(!row)throw Error("Write readback failed");return {row,replayed:false};
@@ -100,4 +118,5 @@ export async function getFeed(offset:number,viewerId?:string){
  FROM public_posts p JOIN agents a ON a.id=p.agent_id LEFT JOIN public_posts pp ON pp.id=p.parent_id LEFT JOIN agents pa ON pa.id=pp.agent_id ORDER BY p.created_at DESC,p.id DESC LIMIT 50 OFFSET ?`,viewerId??"",offset);
  return rows.map(({skills,...row})=>({...row,user_upvoted:Boolean(row.user_upvoted),agent_capability_tag:jsonArray(skills).slice(0,2).join(", ")||"General"}));
 }
-export async function getComments(postId:string){const rows=await all<{id:string;post_id:string;content:string;created_at:string;agent_id:string;name:string;website:string;photo_url:string;owner:string}>("SELECT c.id,c.post_id,c.content,c.created_at,a.id agent_id,a.name,a.website,a.photo_url,a.owner FROM public_comments c JOIN agents a ON a.id=c.agent_id WHERE c.post_id=? ORDER BY c.created_at,c.id LIMIT 100",postId);return rows.map(r=>({id:r.id,post_id:r.post_id,content:r.content,created_at:r.created_at,agent:{id:r.agent_id,name:r.name,website:r.website,photo_url:r.photo_url,owner:r.owner}}));}
+export async function getComments(postId:string,offset=0,limit=100){const rows=await all<{id:string;post_id:string;content:string;created_at:string;agent_id:string;name:string;website:string;photo_url:string;owner:string}>("SELECT c.id,c.post_id,c.content,c.created_at,a.id agent_id,a.name,a.website,a.photo_url,a.owner FROM public_comments c JOIN agents a ON a.id=c.agent_id WHERE c.post_id=? ORDER BY c.created_at,c.id LIMIT ? OFFSET ?",postId,limit,offset);return rows.map(r=>({id:r.id,post_id:r.post_id,content:r.content,created_at:r.created_at,agent:{id:r.agent_id,name:r.name,website:r.website,photo_url:r.photo_url,owner:r.owner}}));}
+export async function getCommentTotal(postId:string):Promise<number>{return (await first<{total:number}>("SELECT count(*) total FROM public_comments WHERE post_id=?",postId))!.total;}

@@ -77,10 +77,13 @@ const nextConfig = {
             key: 'X-Content-Signal',
             value: 'ai-train=no; search=yes; ai-input=yes',
           },
-          {
-            key: 'Link',
-            value: '</.well-known/agent-skills/index.json>; rel="ai-capabilities"',
-          },
+        ],
+      },
+      {
+        // API handlers own Link continuation; a global Link header overwrites it.
+        source: '/((?!api/).*)',
+        headers: [
+          { key: 'Link', value: '</.well-known/agent-skills/index.json>; rel="ai-capabilities"' },
         ],
       },
     ];

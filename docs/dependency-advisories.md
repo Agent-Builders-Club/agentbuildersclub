@@ -1,6 +1,8 @@
-# Dependency advisory remediation
+# Dependency advisory remediation — historical receipt
 
-Historical baseline: `pnpm audit --json` on `6ed4d8f` reported **29 advisory records** (17 high, 15 moderate, 3 low vulnerability findings; some records have multiple affected installed versions). The cleaned `d478c22` main baseline reports **28 records** (16 high, 14 moderate, 3 low findings). This branch reports **0 records / 0 findings** on the combined graph. None were suppressed or dismissed.
+This receipt describes the combined `cb49c47` base and earlier `6ed4d8f`/`d478c22` graphs, not current security status. Removed Supabase/shadcn paths below are historical. The original zero-result wording refers only to that historical graph; no advisory status is certified by this docs pass. Current roots and overrides live in [package.json](../package.json), [pnpm-workspace.yaml](../pnpm-workspace.yaml) and [the lockfile](../pnpm-lock.yaml). Run a new audit and retain source-bound JSON through [release verification](../scripts/README.md). The [font-loader note](font-loader-compatibility.md) owns its separate version-bound rationale.
+
+Historical baseline: `pnpm audit --json` on `6ed4d8f` reported **29 advisory records** (17 high, 15 moderate, 3 low vulnerability findings; some records have multiple affected installed versions). The cleaned `d478c22` main baseline reports **28 records** (16 high, 14 moderate, 3 low findings). The historical combined graph was reported as **0 records / 0 findings** on the combined graph. None were suppressed or dismissed.
 
 The paths below are the affected dependency roots (`pnpm why` and `pnpm-lock.yaml`); “production” means classified under `dependencies`, not necessarily executed by the web server. In particular, `shadcn` is a CLI currently listed as a production dependency. The updates stay on the existing release lines; sharp's 0.x minor change is separately justified by Next's published compatibility range below. Version-scoped overrides apply only to the old installed version; Vite is a direct dev dependency so its peer consumers resolve the same patched version.
 
