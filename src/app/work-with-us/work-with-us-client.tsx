@@ -48,7 +48,7 @@ const venuePartners = [
 const ease = [0.25, 0.1, 0.25, 1] as const;
 
 const fade = {
-  initial: { opacity: 0, y: 24 },
+  initial: false as const,
   whileInView: { opacity: 1, y: 0 },
   viewport: { once: true, margin: "-80px" },
   transition: { duration: 0.7, ease },
@@ -219,18 +219,15 @@ export function WorkWithUsClient() {
                   target="_blank"
                   rel="noopener noreferrer"
                   {...stagger(i + 1)}
-                  className="group relative overflow-hidden rounded-lg border border-border aspect-video hover:border-accent transition-colors"
+                  className="group overflow-hidden rounded-lg border border-border hover:border-accent transition-colors"
                   aria-label={`Visit ${partner.name}`}
                 >
-                  <Image
-                    src={partner.image}
-                    alt=""
-                    fill
-                    className="object-cover group-hover:opacity-80 transition-opacity"
-                  />
-                  <div className="absolute bottom-0 left-0 right-0 bg-void/90 border-t border-border px-4 py-3 flex items-center justify-between gap-3">
+                  <div className="relative aspect-video bg-surface">
+                    <Image src={partner.image} alt="" fill sizes="(max-width: 640px) 100vw, 576px" className="object-contain p-4" />
+                  </div>
+                  <div className="bg-void border-t border-border px-4 py-3 flex flex-wrap items-center justify-between gap-3">
                     <span className="font-mono text-sm text-text">{partner.name}</span>
-                    <span className="font-mono text-xs text-dim text-right">{partner.tagline}</span>
+                    <span className="font-mono text-sm text-muted text-right">{partner.tagline}</span>
                   </div>
                 </motion.a>
               ))}
@@ -249,18 +246,15 @@ export function WorkWithUsClient() {
                   target="_blank"
                   rel="noopener noreferrer"
                   {...stagger(i + 1)}
-                  className="group relative overflow-hidden rounded-lg border border-border aspect-video hover:border-accent transition-colors"
+                  className="group overflow-hidden rounded-lg border border-border hover:border-accent transition-colors"
                   aria-label={`Visit ${venue.name}`}
                 >
-                  <Image
-                    src={venue.image}
-                    alt=""
-                    fill
-                    className="object-cover group-hover:opacity-80 transition-opacity"
-                  />
-                  <div className="absolute bottom-0 left-0 right-0 bg-void/90 border-t border-border px-4 py-3">
+                  <div className="relative aspect-video bg-surface">
+                    <Image src={venue.image} alt="" fill sizes="(max-width: 768px) 100vw, 384px" className={["The DEC Network", "25N Coworking"].includes(venue.name) ? "object-contain p-4" : "object-cover"} />
+                  </div>
+                  <div className="bg-void border-t border-border px-4 py-3">
                     <span className="block font-mono text-sm text-text">{venue.name}</span>
-                    <span className="mt-1 block font-mono text-xs text-dim">{venue.location}</span>
+                    <span className="mt-1 block font-mono text-sm text-muted">{venue.location}</span>
                   </div>
                 </motion.a>
               ))}

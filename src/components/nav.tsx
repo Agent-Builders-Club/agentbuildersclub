@@ -25,6 +25,9 @@ export function Nav() {
     if (!open) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    const background = Array.from(document.querySelectorAll<HTMLElement>("main, footer"));
+    const previousInert = background.map(element => element.inert);
+    background.forEach(element => { element.inert = true; });
     mobileRef.current?.querySelector<HTMLAnchorElement>("a")?.focus();
 
     function handleKeyDown(event: KeyboardEvent) {
@@ -56,6 +59,7 @@ export function Nav() {
     document.addEventListener("focusin", handleFocus);
     return () => {
       document.body.style.overflow = previousOverflow;
+      background.forEach((element, index) => { element.inert = previousInert[index]; });
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("focusin", handleFocus);
     };
@@ -95,9 +99,9 @@ export function Nav() {
       aria-modal={open ? true : undefined}
       aria-label={open ? "Navigation menu" : "Main navigation"}
       data-visible={visible || open || communityOpen}
-      className="fixed inset-x-0 top-0 z-50 border-b border-transparent bg-gradient-to-b from-void/90 to-transparent transition-transform duration-300 ease-out data-[visible=false]:-translate-y-full motion-reduce:transition-none"
+      className={`fixed inset-x-0 top-0 z-50 border-b border-transparent transition-transform duration-300 ease-out data-[visible=false]:-translate-y-full motion-reduce:transition-none ${open ? "flex h-dvh flex-col bg-void" : "bg-void"}`}
     >
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-5 py-4 md:px-8 md:py-5">
+      <div className="mx-auto flex w-full shrink-0 max-w-7xl items-center justify-between gap-3 px-5 py-4 md:px-8 md:py-5">
         <Link
           href="/"
           className="group flex shrink-0 items-center gap-2.5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
@@ -170,7 +174,7 @@ export function Nav() {
           ref={menuButtonRef}
           type="button"
           onClick={() => { if (open) closeMobile(); else { setCommunityOpen(false); setOpen(true); } }}
-          className="relative z-50 -mr-2 flex shrink-0 flex-col gap-[5px] p-2 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent xl:hidden"
+          className="relative z-50 -mr-2 flex min-h-11 min-w-11 items-center justify-center shrink-0 flex-col gap-[5px] p-2 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent xl:hidden"
           aria-label={open ? "Close menu" : "Open menu"}
           aria-expanded={open}
           aria-controls="mobile-navigation"
@@ -185,12 +189,12 @@ export function Nav() {
         <div
           ref={mobileRef}
           id="mobile-navigation"
-          className="absolute inset-x-0 top-full z-40 max-h-[calc(100dvh-85px)] overflow-y-auto overscroll-contain bg-void px-5 pb-6 pt-4 md:px-8 xl:hidden"
+          className="relative z-40 min-h-0 flex-1 overflow-y-auto overscroll-contain bg-void px-5 pb-6 pt-4 md:px-8 xl:hidden"
         >
           <div className="mx-auto flex max-w-xl flex-col gap-4">
             <div className="flex flex-col gap-3" aria-label="Meetup navigation">
               {siteConfig.navigation.map((link) => (
-                <Link key={link.href} href={link.href} onClick={closeMobile} className="font-display text-2xl tracking-tight text-text transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent">
+                <Link key={link.href} href={link.href} onClick={closeMobile} className="inline-flex min-h-11 items-center font-display text-2xl tracking-tight text-text transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent">
                   {link.label}
                 </Link>
               ))}
@@ -202,11 +206,11 @@ export function Nav() {
               <p className="mb-2 font-mono text-xs uppercase tracking-widest text-muted">Community resources</p>
               <div className="flex flex-wrap gap-x-5 gap-y-2">
                 {siteConfig.communityNavigation.map((link) => (
-                  <Link key={link.href} href={link.href} onClick={closeMobile} className={`${primaryLinkClass} py-2`}>
+                  <Link key={link.href} href={link.href} onClick={closeMobile} className={`${primaryLinkClass} inline-flex min-h-11 items-center py-2`}>
                     {link.label}
                   </Link>
                 ))}
-                <a href={siteConfig.discordUrl} target="_blank" rel="noopener noreferrer" onClick={closeMobile} className={`${primaryLinkClass} py-2`}>
+                <a href={siteConfig.discordUrl} target="_blank" rel="noopener noreferrer" onClick={closeMobile} className={`${primaryLinkClass} inline-flex min-h-11 items-center py-2`}>
                   Join Discord
                 </a>
               </div>

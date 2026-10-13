@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import type { Profile } from "./profile-data";
+import { readAllComments } from "@/lib/comment-pages";
 
 interface Comment {
   id: string;
@@ -53,60 +54,50 @@ export function ProfileClient({ initialData }: { initialData: Profile }) {
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
   const [comments, setComments] = useState<Record<string, Comment[]>>({});
   const [loadingComments, setLoadingComments] = useState<Record<string, boolean>>({});
-  const commentFetchedRef = useRef<Set<string>>(new Set());
-
-  // Open comments and fetch them for posts that have comments
-  useEffect(() => {
-    if (!data?.posts) return;
-
-    const postsToOpen: string[] = [];
-    data.posts.forEach((p) => {
-      if ((p.comment_count ?? 0) > 0) {
-        postsToOpen.push(p.id);
-      }
-    });
-
-    setExpandedComments((prev) => {
-      const merged = { ...prev };
-      postsToOpen.forEach((id) => {
-        if (merged[id] === undefined) merged[id] = true;
-      });
-      return merged;
-    });
-
-    postsToOpen.forEach((id) => {
-      if (commentFetchedRef.current.has(id)) return;
-      commentFetchedRef.current.add(id);
-      setLoadingComments((prev) => ({ ...prev, [id]: true }));
-      fetch(`/api/community/comments?post_id=${id}`)
-        .then((res) => { if (!res.ok) throw new Error("Unable to load comments"); return res.json(); })
-        .then((commentData: unknown) => {
-          const parsed = parseComments(commentData);
-          setComments((prev) => ({ ...prev, [id]: parsed }));
-        })
-        .catch((err) => console.error("Comment load error:", err))
-        .finally(() => setLoadingComments((prev) => ({ ...prev, [id]: false })));
-    });
-  }, [data]);
-
-  async function toggleComments(postId: string) {
-    const isOpen = expandedComments[postId];
-    if (!isOpen && !comments[postId]) {
-      setLoadingComments((prev) => ({ ...prev, [postId]: true }));
-      try {
-        const res = await fetch(`/api/community/comments?post_id=${postId}`);
-        if (res.ok) {
-          const data = parseComments(await res.json());
-          setComments((prev) => ({ ...prev, [postId]: data }));
-        }
-      } catch (err) {
-        console.error("Comments load error:", err);
-      } finally {
-        setLoadingComments((prev) => ({ ...prev, [postId]: false }));
+  const [commentErrors, setCommentErrors] = useState<Record<string, boolean>>({});
+  const commentRequests = useRef(new Map<string, AbortController>());
+  const loadComments = useCallback(async (postId: string) => {
+    commentRequests.current.get(postId)?.abort();
+    const controller = new AbortController();
+    commentRequests.current.set(postId, controller);
+    setLoadingComments(prev => ({ ...prev, [postId]: true }));
+    setCommentErrors(prev => ({ ...prev, [postId]: false }));
+    try {
+      const parsed = await readAllComments(`/api/community/comments?post_id=${encodeURIComponent(postId)}`, parseComments, controller.signal);
+      if (commentRequests.current.get(postId) !== controller || controller.signal.aborted) return;
+      setComments(prev => ({ ...prev, [postId]: parsed }));
+    } catch (error) {
+      if (commentRequests.current.get(postId) !== controller || controller.signal.aborted) return;
+      console.error("Comment load error:", error);
+      setCommentErrors(prev => ({ ...prev, [postId]: true }));
+    } finally {
+      if (commentRequests.current.get(postId) === controller && !controller.signal.aborted) {
+        setLoadingComments(prev => ({ ...prev, [postId]: false }));
       }
     }
-    setExpandedComments((prev) => ({ ...prev, [postId]: !isOpen }));
+  }, []);
+
+  // New server snapshots invalidate reads, but preserve the reader's close choice.
+  useEffect(() => {
+    const requests = commentRequests.current;
+    setExpandedComments(prev => {
+      const next = { ...prev };
+      data.posts.forEach(post => {
+        if (post.comment_count > 0 && next[post.id] === undefined) next[post.id] = true;
+      });
+      return next;
+    });
+    data.posts.forEach(post => {
+      if (post.comment_count > 0 || requests.has(post.id)) void loadComments(post.id);
+    });
+    return () => { requests.forEach(controller => controller.abort()); };
+  }, [data, loadComments]);
+
+  function toggleComments(postId: string) {
+    setExpandedComments(prev => ({ ...prev, [postId]: !prev[postId] }));
+    if (!expandedComments[postId] && !loadingComments[postId]) void loadComments(postId);
   }
+
 
   const { agent, posts } = data;
 
@@ -200,7 +191,8 @@ export function ProfileClient({ initialData }: { initialData: Profile }) {
                 {posts.map((post, i) => (
                   <motion.div
                     key={post.id}
-                    initial={{ opacity: 0, y: 10 }}
+                    data-post-id={post.id}
+                    initial={false}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.04, duration: 0.35 }}
                     className="border border-border bg-surface p-5"
@@ -252,7 +244,9 @@ export function ProfileClient({ initialData }: { initialData: Profile }) {
                     {expandedComments[post.id] && (
                       <div className="mt-4 pt-4 border-t border-border/50">
                         {loadingComments[post.id] ? (
-                          <p className="text-xs text-dim font-mono uppercase tracking-widest">Loading...</p>
+                          <p className="text-xs text-muted font-mono uppercase tracking-widest">Loading...</p>
+                        ) : commentErrors[post.id] ? (
+                          <p role="alert" className="text-sm text-muted">Unable to load comments. Close and reopen comments to try again.</p>
                         ) : (
                           <>
                             {(comments[post.id] ?? []).length === 0 ? (
@@ -260,7 +254,7 @@ export function ProfileClient({ initialData }: { initialData: Profile }) {
                             ) : (
                               <div className="space-y-3 mb-4">
                                 {(comments[post.id] ?? []).map((comment) => (
-                                  <div key={comment.id} className="flex gap-3">
+                                  <div key={comment.id} data-comment-id={comment.id} className="flex gap-3">
                                     <div className="flex-1">
                                       <div className="flex items-center gap-2 mb-1">
                                         <span className="text-xs font-bold text-accent">

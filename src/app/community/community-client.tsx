@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Logger } from "@/lib/logger";
+import { readAllComments } from "@/lib/comment-pages";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
@@ -95,71 +96,97 @@ export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
   const [comments, setComments] = useState<Record<string, Comment[]>>({});
   const [loadingComments, setLoadingComments] = useState<Record<string, boolean>>({});
   const [now] = useState(() => Date.now());
-  const commentFetchedRef = useRef<Set<string>>(new Set());
+  const [commentErrors, setCommentErrors] = useState<Record<string, boolean>>({});
+  const commentRequests = useRef(new Map<string, AbortController>());
+  const feedRequest = useRef({ generation: 0 });
+
+  const loadComments = useCallback(async (postId: string) => {
+    commentRequests.current.get(postId)?.abort();
+    const controller = new AbortController();
+    commentRequests.current.set(postId, controller);
+    setLoadingComments(prev => ({ ...prev, [postId]: true }));
+    setCommentErrors(prev => ({ ...prev, [postId]: false }));
+    try {
+      const parsed = await readAllComments(`${API_BASE}/comments?post_id=${encodeURIComponent(postId)}`, parseComments, controller.signal);
+      if (commentRequests.current.get(postId) !== controller || controller.signal.aborted) return;
+      setComments(prev => ({ ...prev, [postId]: parsed }));
+    } catch (error) {
+      if (commentRequests.current.get(postId) !== controller || controller.signal.aborted) return;
+      Logger.error("Comment load error:", error);
+      setCommentErrors(prev => ({ ...prev, [postId]: true }));
+    } finally {
+      if (commentRequests.current.get(postId) === controller && !controller.signal.aborted) {
+        setLoadingComments(prev => ({ ...prev, [postId]: false }));
+      }
+    }
+  }, []);
 
   const loadFeed = useCallback(async () => {
+    const request = ++feedRequest.current.generation;
     try {
-      const res = await fetch(`${API_BASE}/feed`);
+      const res = await fetch(`${API_BASE}/feed`, { cache: "no-store" });
+      if (request !== feedRequest.current.generation) return;
       if (res.ok) {
         const data: unknown = await res.json();
         if (!Array.isArray(data) || !data.every(isFeedPost)) throw new Error("Invalid feed response");
+        if (request !== feedRequest.current.generation) return;
         setFeed(data);
         setActionError(null);
       } else {
         setActionError("Unable to load the feed. Please try again.");
       }
     } catch (err) {
+      if (request !== feedRequest.current.generation) return;
       Logger.error("Feed load error:", err);
       setActionError("Unable to load the feed. Please try again.");
     } finally {
-      setLoading(false);
+      if (request === feedRequest.current.generation) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    const requests = commentRequests.current;
+    const feedRequests = feedRequest.current;
     queueMicrotask(() => {
       void loadFeed();
     });
     const refresh = setInterval(() => { if (!document.hidden) void loadFeed(); }, 60000);
-    return () => clearInterval(refresh);
+    return () => {
+      clearInterval(refresh);
+      feedRequests.generation++;
+      requests.forEach(controller => controller.abort());
+    };
   }, [loadFeed]);
 
-  // When feed loads, open comments and fetch them for posts that have comments
+  // Refresh cached comments with every accepted feed snapshot, including closed threads.
+  // Request completion never changes the reader's expansion choice.
   useEffect(() => {
-    if (feed.length === 0) return;
-
-    const postsToOpen: { id: string; hasComments: boolean }[] = [];
-    feed.forEach((p) => {
-      if ((p.comment_count ?? 0) > 0) postsToOpen.push({ id: p.id, hasComments: true });
+    const ids = new Set(feed.map(post => post.id));
+    commentRequests.current.forEach((controller, id) => {
+      if (!ids.has(id)) {
+        controller.abort();
+        commentRequests.current.delete(id);
+        setComments(prev => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
+        setLoadingComments(prev => ({ ...prev, [id]: false }));
+        setCommentErrors(prev => ({ ...prev, [id]: false }));
+      }
     });
-
-    if (postsToOpen.length === 0) return;
-
-    // Batch-set all to open (only undefined → true, preserves user-closed state)
-    setExpandedComments((prev) => {
-      const merged = { ...prev };
-      postsToOpen.forEach(({ id }) => {
-        if (merged[id] === undefined) merged[id] = true;
+    setExpandedComments(prev => {
+      const next = { ...prev };
+      feed.forEach(post => {
+        if (post.comment_count > 0 && next[post.id] === undefined) next[post.id] = true;
       });
-      return merged;
+      return next;
     });
+    feed.forEach(post => {
+      if (post.comment_count > 0 || commentRequests.current.has(post.id)) void loadComments(post.id);
+    });
+  }, [feed, loadComments]);
 
-    // Fetch comments for each post that doesn't already have them loaded
-    postsToOpen.forEach(({ id }) => {
-      // Check current state via a ref to avoid stale closure
-      if (commentFetchedRef.current.has(id)) return;
-      commentFetchedRef.current.add(id);
-      setLoadingComments((prev) => ({ ...prev, [id]: true }));
-      fetch(`${API_BASE}/comments?post_id=${id}`)
-        .then((res) => { if (!res.ok) throw new Error("Unable to load comments"); return res.json(); })
-        .then((data: unknown) => {
-          const parsed = parseComments(data);
-          setComments((prev) => ({ ...prev, [id]: parsed }));
-        })
-        .catch((err) => Logger.error("Comment load error:", err))
-        .finally(() => setLoadingComments((prev) => ({ ...prev, [id]: false })));
-    });
-  }, [feed]);
 
   const recentPosts = feed.filter((post) => {
     const postTime = new Date(post.created_at).getTime();
@@ -170,24 +197,13 @@ export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
   const totalAgents = new Set(feed.map((p) => p.agent_id)).size;
   const totalPosts = feed.length;
 
-  async function toggleComments(postId: string) {
-    const isOpen = expandedComments[postId];
-    if (!isOpen && !comments[postId]) {
-      setLoadingComments((prev) => ({ ...prev, [postId]: true }));
-      try {
-        const res = await fetch(`${API_BASE}/comments?post_id=${postId}`);
-        if (res.ok) {
-          const data = parseComments(await res.json());
-          setComments((prev) => ({ ...prev, [postId]: data }));
-        }
-      } catch (err) {
-        Logger.error("Comments load error:", err);
-      } finally {
-        setLoadingComments((prev) => ({ ...prev, [postId]: false }));
-      }
+  function toggleComments(postId: string) {
+    setExpandedComments(prev => ({ ...prev, [postId]: !prev[postId] }));
+    if (!expandedComments[postId] && (!comments[postId] || commentErrors[postId]) && !loadingComments[postId]) {
+      void loadComments(postId);
     }
-    setExpandedComments((prev) => ({ ...prev, [postId]: !isOpen }));
   }
+
 
   return (
     <>
@@ -243,6 +259,7 @@ export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
               {feed.map((post, i) => (
                 <motion.div
                   key={post.id}
+                  data-post-id={post.id}
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.04, duration: 0.4 }}
@@ -346,7 +363,9 @@ export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
                   {expandedComments[post.id] && (
                     <div className="mt-4 pt-4 border-t border-border/50">
                       {loadingComments[post.id] ? (
-                        <p className="text-xs text-dim font-mono uppercase tracking-widest">Loading...</p>
+                        <p className="text-xs text-muted font-mono uppercase tracking-widest">Loading...</p>
+                      ) : commentErrors[post.id] ? (
+                        <p role="alert" className="text-sm text-muted">Unable to load comments. Close and reopen comments to try again.</p>
                       ) : (
                         <>
                           {(comments[post.id] ?? []).length === 0 ? (
@@ -354,7 +373,7 @@ export function CommunityClient({ webApiSchemaJson }: CommunityClientProps) {
                           ) : (
                             <div className="space-y-3 mb-4">
                               {(comments[post.id] ?? []).map((comment) => (
-                                <div key={comment.id} className="flex gap-3">
+                                <div key={comment.id} data-comment-id={comment.id} className="flex gap-3">
                                   <div className="flex-1">
                                     <div className="flex items-center gap-2 mb-1">
                                       <span className="text-xs font-bold text-accent">

@@ -8,7 +8,7 @@
  * Requires an already running isolated Next server; never builds or installs.
  * External Luma/Discord destinations are inspected, not opened or submitted.
  */
-const { chromium, expect } = require('@playwright/test');
+const { expect } = require('@playwright/test');
 const fs = require('node:fs');
 const path = require('node:path');
 const baseURL = process.env.NAV_E2E_BASE_URL;
@@ -16,11 +16,10 @@ if (!baseURL || !/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(baseURL)) throw 
 const output = process.env.NAV_E2E_OUTPUT;
 if (!output) throw new Error('NAV_E2E_OUTPUT is required for durable artifacts');
 fs.mkdirSync(output, { recursive: true });
-const primary = [['Events', '/events'], ['Projects', '/community/projects'], ['Get Involved', '/get-involved'], ['Contact', '/contact']];
+const primary = [['Events', '/events'], ['Get Involved', '/get-involved'], ['Contact', '/contact']];
 const secondary = [['Community', '/community'], ['Agents', '/community/agents'], ['Skills', '/skills']];
 (async () => {
-  const browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH } : {}) });
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
+  const { browser, context } = await require('./read-only-browser.cjs').launchReadOnly(baseURL, { viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
   await context.tracing.start({ screenshots: true, snapshots: true, sources: true });
   const page = await context.newPage();
   const cases = [];
@@ -104,6 +103,7 @@ const secondary = [['Community', '/community'], ['Agents', '/community/agents'],
     await expect(menu).toHaveCount(0);
     expect(await page.evaluate(() => document.body.style.overflow)).not.toBe('hidden');
   });
+  await test('no page exceptions or attempted writes', async () => { expect(context.readOnlyEvidence).toEqual({ writes: [], errors: [] }); });
   await context.tracing.stop({ path: path.join(output, 'trace.zip') });
   fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify({ baseURL, cases, passed: cases.every(c => c.status === 'passed'), exclusions: ['External Luma/Discord availability', 'Contact submission/delivery', 'Parent-owned final production/build gates'] }, null, 2));
   await browser.close();

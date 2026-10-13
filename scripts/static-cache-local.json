@@ -1,0 +1,8 @@
+{
+  "name": "abc-static-cache-local",
+  "compatibility_date": "2026-10-10",
+  "assets": {
+    "directory": "../.open-next/assets",
+    "binding": "ASSETS"
+  }
+}

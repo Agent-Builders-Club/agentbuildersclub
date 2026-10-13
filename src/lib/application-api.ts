@@ -5,18 +5,19 @@ import { hashApiKey } from "@/lib/api-key";
 import { isAdminRequest } from "@/lib/admin-auth";
 import { readBoundedJson, RequestBodyTooLarge } from "@/lib/bounded-json";
 import { checkRateLimit, getClientIP, type RateLimitAction } from "@/lib/rate-limit";
-import { CommunityError, createAgent, getAgentByApiKey, getAgents, getPublicAgent, getPostsByAgent, getFeed, getComments, writeContent, followAgent, toggleUpvote, createReport, type Agent } from "@/lib/community-db";
+import { CommunityError, createAgent, getAgentByApiKey, getAgents, getAgentTotal, getMatchingAgents, getCommentTotal, getPublicAgent, getPostsByAgent, getFeed, getComments, writeContent, followAgent, toggleUpvote, createReport, type Agent } from "@/lib/community-db";
 import { notifyContact } from "@/lib/contact-delivery";
 import { siteConfig } from "@/config";
 
 type Body = Record<string, unknown>;
 export type RouteContext = { params: Promise<Record<string,string>> };
 export function reply(value: unknown,status=200,headers:Record<string,string>={}) {
- return NextResponse.json(value,{status,headers:{"Cache-Control":"private, no-store",...headers}});
+ const discovery='</.well-known/agent-skills/index.json>; rel="ai-capabilities"';
+ return NextResponse.json(value,{status,headers:{"Cache-Control":"private, no-store",...headers,Link:headers.Link?`${headers.Link}, ${discovery}`:discovery}});
 }
 export async function boundary(fn:()=>Promise<Response>):Promise<Response> {
  try{return await fn();}catch(e){
-  if(e instanceof CommunityError)return reply({error:e.message},e.status,e.status===429?{"Retry-After":String(Math.max(1,Math.ceil((Date.parse(new Date().toISOString().slice(0,10)+"T00:00:00.000Z")+86400000-Date.now())/1000)))}:{});
+  if(e instanceof CommunityError)return reply({error:e.message},e.status,e.status===429&&e.retryAfter!==undefined?{"Retry-After":String(e.retryAfter)}:{});
   if(e instanceof RequestBodyTooLarge)return reply({error:"Request body too large"},413);
   if(e instanceof SyntaxError)return reply({error:"Invalid JSON"},400);
   if(String(e).includes("AGENT_MUTED"))return reply({error:"Agent is muted"},403);
@@ -55,7 +56,7 @@ async function optionalAuth(req:Request){return req.headers.has("x-api-key")?aut
 function admin(req:Request){if(!isAdminRequest(req))throw new CommunityError(401,"Admin authorization required");}
 async function rate(req:Request,action:RateLimitAction,agentId?:string){
  const rl=await checkRateLimit(agentId?"agent_id":"ip",agentId??getClientIP(req),action);
- if(!rl.allowed)throw new CommunityError(429,`Too many ${action} requests; retry in ${rl.retryAfter}s`);
+ if(!rl.allowed)throw new CommunityError(429,`Too many ${action} requests; retry in ${rl.retryAfter}s`,rl.retryAfter);
 }
 function publicPost(row:{id:string;agent_id:string;content:string;image_url:string|null;parent_id:string|null;created_at:string},agent:Agent){return {id:row.id,agent_id:row.agent_id,agent_name:agent.name,content:row.content,image_url:row.image_url,parent_id:row.parent_id,created_at:row.created_at};}
 function projectIdentity(value:string):string {
@@ -90,9 +91,22 @@ export function rotateKey(req:Request){return boundary(async()=>{
  const row=await first<{id:string}>("UPDATE agents SET api_key=?,api_key_hash=? WHERE id=? AND api_key_hash=? RETURNING id",hash,hash,agent.id,hashApiKey(current));
  if(!row)throw new CommunityError(409,"Key changed; use your current key");return reply({api_key:key,id:row.id});
 });}
+function pagination(req?:Request):{offset:number;limit:number} {
+ const query=req?new URL(req.url).searchParams:new URLSearchParams();
+ const offset=Number(query.get("offset")??"0"),limit=Number(query.get("limit")??"100");
+ if(!Number.isSafeInteger(offset)||offset<0||!Number.isSafeInteger(limit)||limit<1||limit>100)throw new CommunityError(400,"Invalid pagination: offset must be nonnegative and limit 1–100");
+ return {offset,limit};
+}
+function pageHeaders(req:Request|undefined,offset:number,limit:number,total:number):Record<string,string>{
+ const headers:Record<string,string>={"X-Total-Count":String(total),"X-Page-Limit":String(limit),"X-Page-Offset":String(offset)};
+ const links:string[]=[];
+ const link=(at:number,rel:string)=>{const url=new URL(req?.url??"http://localhost/api/agents");url.searchParams.set("offset",String(at));url.searchParams.set("limit",String(limit));links.push(`<${url.pathname}${url.search}>; rel="${rel}"`);};
+ if(offset>0)link(Math.max(0,offset-limit),"prev");if(offset+limit<total)link(offset+limit,"next");
+ if(links.length)headers.Link=links.join(", ");return headers;
+}
 export function directory(req?:Request,envelope=false){return boundary(async()=>{
- const agents=await getAgents();void req;
- return reply(envelope?{agents,total:agents.length,limit:100,offset:0}:agents.map(a=>({...a,last_active:a.last_seen??a.created_at,capability_tag:a.skills.slice(0,2).join(", ")||"General"})));
+ const {offset,limit}=pagination(req),agents=await getAgents(offset,limit),total=await getAgentTotal();
+ return reply(envelope?{agents,total,limit,offset,has_more:offset+agents.length<total}:agents.map(a=>({...a,last_active:a.last_seen??a.created_at,capability_tag:a.skills.slice(0,2).join(", ")||"General"})),200,pageHeaders(req,offset,limit,total));
 });}
 export function feed(req:Request){return boundary(async()=>{
  const offset=Number(new URL(req.url).searchParams.get("offset")??"0");if(!Number.isSafeInteger(offset)||offset<0||offset>10000)throw new CommunityError(400,"Invalid offset");
@@ -115,7 +129,9 @@ async function hideOwned(table:"posts"|"comments",id:string,agentId:string){
  db.prepare("INSERT INTO moderation_audit(id,target_type,target_id,action,reason,actor) VALUES(?,?,?,?,?,?)").bind(randomUUID(),table,id,"hide","author removal",agentId)]);
 }
 export function commentsRead(req:Request){return boundary(async()=>{
- const id=new URL(req.url).searchParams.get("post_id");if(!id||id.length>100)throw new CommunityError(400,"post_id required");return reply(await getComments(id));
+ const id=new URL(req.url).searchParams.get("post_id");if(!id||id.length>100)throw new CommunityError(400,"post_id required");
+ const {offset,limit}=pagination(req),comments=await getComments(id,offset,limit),total=await getCommentTotal(id);
+ return reply(comments,200,pageHeaders(req,offset,limit,total));
 });}
 export function commentCreate(req:Request){return boundary(async()=>{
  const agent=await auth(req,true),b=await body(req),post_id=text(b,"post_id",100,true),content=text(b,"content",500,true);
@@ -151,13 +167,45 @@ export function matchAgents(req:Request){return boundary(async()=>{
  const b=await body(req,8192),skills=arrayValue(b,"seeking_skills",20,100);text(b,"project_description",2000);
  if(!skills.length)throw new CommunityError(400,"seeking_skills required");
  const keywords=skills.map(s=>s.toLowerCase());
- const matches=(await getAgents()).filter(a=>!a.muted&&a.availability!=="offline").map(a=>{
-  const overlap=skills.filter(s=>a.skills.some(as=>as.toLowerCase().includes(s.toLowerCase())||s.toLowerCase().includes(as.toLowerCase())));
-  const keyword=keywords.filter(w=>a.description.toLowerCase().includes(w)).length/keywords.length;
-  return {agent_id:a.id,name:a.name,owner:a.owner,skills:a.skills,location:a.location,compatibility_score:Math.round(overlap.length/skills.length*60+keyword*40)};
- }).filter(a=>a.compatibility_score>0).sort((a,b)=>b.compatibility_score-a.compatibility_score);
- const matched=new Set(matches.flatMap(a=>a.skills.map(s=>s.toLowerCase())));
- return reply({matches,community_gaps:skills.filter(s=>!matched.has(s.toLowerCase())&&!matched.has(s.toLowerCase().split("-")[0]))});
+ const {offset,limit}=pagination(req);
+ type Match={agent_id:string;name:string;owner:string;skills:string[];location:string;compatibility_score:number};
+ type Ranked={match:Match;ordinal:number};
+ const compare=(a:Ranked,b:Ranked)=>b.match.compatibility_score-a.match.compatibility_score||a.match.agent_id.localeCompare(b.match.agent_id)||a.ordinal-b.ordinal;
+ // Arbitrary offsets remain valid. Select successive fixed-size rank windows rather
+ // than retaining offset+limit rows. Deep pages trade repeated scans for bounded
+ // memory; as with the existing OFFSET traversal, no concurrent snapshot is promised.
+ const gapKeys=new Set(keywords.flatMap(s=>[s,s.split("-")[0]]));
+ const present=new Set<string>();
+ let total=0,cursor:Ranked|undefined,remaining=offset,firstPass=true;
+ let selected:Ranked[]=[];
+ for(;;){
+  const selectionSize=remaining>0?Math.min(100,remaining):limit;
+  selected=[];let ordinal=0;
+  for await(const agent of getMatchingAgents(keywords)){
+   const candidateSkills=agent.skills.map(s=>s.toLowerCase()),description=agent.description.toLowerCase();
+   const overlap=keywords.filter(s=>candidateSkills.some(as=>as.includes(s)||s.includes(as))).length;
+   const keyword=keywords.filter(w=>description.includes(w)).length/keywords.length;
+   const score=Math.round(overlap/skills.length*60+keyword*40);
+   const position=ordinal++;
+   if(score<=0)continue;
+   if(firstPass){total++;for(const s of candidateSkills)if(gapKeys.has(s))present.add(s);}
+   const ranked:Ranked={match:{agent_id:agent.id,name:agent.name,owner:agent.owner,skills:agent.skills,location:agent.location,compatibility_score:score},ordinal:position};
+   if(cursor&&compare(ranked,cursor)<=0)continue;
+   // Reject worse rows before searching/inserting; at most100 matches survive.
+   if(selected.length===selectionSize&&compare(ranked,selected[selected.length-1])>=0)continue;
+   let low=0,high=selected.length;
+   while(low<high){const middle=(low+high)>>>1;if(compare(ranked,selected[middle])<0)high=middle;else low=middle+1;}
+   if(selected.length===selectionSize)selected.pop();
+   selected.splice(low,0,ranked);
+  }
+  firstPass=false;
+  if(offset>=total){selected=[];break;}
+  if(remaining===0)break;
+  // Empty windows can occur if the cohort changes between scans. Never loop forever.
+  if(!selected.length)break;
+  remaining-=selected.length;cursor=selected[selected.length-1];
+ }
+ return reply({matches:selected.map(r=>r.match),total,offset,limit,has_more:offset+limit<total,community_gaps:skills.filter((_,i)=>!present.has(keywords[i])&&!present.has(keywords[i].split("-")[0]))},200,pageHeaders(req,offset,limit,total));
 });}
 export function muteAgent(req:Request,ctx:RouteContext){return boundary(async()=>{
  admin(req);const {agentId}=await ctx.params,b=await body(req);
@@ -191,16 +239,27 @@ export function adminPostDelete(req:Request,ctx:RouteContext){return boundary(as
  if(isAdminRequest(req))return moderateContent(req,ctx,"posts");return postDelete(req,(await ctx.params).postId);
 });}
 export function moderationQueue(req:Request){return boundary(async()=>{
- admin(req);return reply({posts:await all("SELECT id,agent_id,content,hidden,review_reason,hidden_reason FROM posts WHERE hidden=1 OR review_reason IS NOT NULL ORDER BY created_at DESC LIMIT 100"),comments:await all("SELECT id,agent_id,post_id,content,hidden,review_reason,hidden_reason FROM comments WHERE hidden=1 OR review_reason IS NOT NULL ORDER BY created_at DESC LIMIT 100"),agents:await all("SELECT id,name,muted,muted_until FROM agents WHERE muted=1"),audit:await all("SELECT * FROM moderation_audit ORDER BY created_at DESC LIMIT 100")});
+ admin(req);const {offset,limit}=pagination(req);
+ const reports=await all("SELECT r.id,r.post_id,r.agent_id reporter_agent_id,r.reason,r.created_at,p.agent_id,p.content,p.hidden,p.hidden_reason FROM reports r JOIN posts p ON p.id=r.post_id ORDER BY r.created_at DESC,r.id DESC LIMIT ? OFFSET ?",limit,offset);
+ const reportsTotal=(await first<{total:number}>("SELECT count(*) total FROM reports"))!.total;
+ return reply({
+  posts:await all("SELECT p.id,p.agent_id,p.content,p.hidden,p.review_reason,p.hidden_reason,(SELECT count(*) FROM reports WHERE post_id=p.id) report_count FROM posts p WHERE p.hidden=1 OR p.review_reason IS NOT NULL OR EXISTS(SELECT 1 FROM reports WHERE post_id=p.id) ORDER BY p.created_at DESC,p.id DESC LIMIT ? OFFSET ?",limit,offset),
+  comments:await all("SELECT id,agent_id,post_id,content,hidden,review_reason,hidden_reason FROM comments WHERE hidden=1 OR review_reason IS NOT NULL ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?",limit,offset),
+  agents:await all("SELECT id,name,muted,muted_until FROM agents WHERE muted=1"),
+  audit:await all("SELECT * FROM moderation_audit ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?",limit,offset),
+  reports,reports_total:reportsTotal,reports_has_more:offset+reports.length<reportsTotal,offset,limit
+ },200,pageHeaders(req,offset,limit,reportsTotal));
 });}
+const skillCategories=["Research","Productivity","Social","Utility","Creative"];
+function skillCategory(category:string):string{return skillCategories.find(c=>c.toLowerCase()===category.toLowerCase())??category;}
 type SkillRow={id:string;name:string;description:string;category:string;trigger_phrases:string;instructions:string;submitted_by:string;install_count:number;created_at:string};
 export function skillsRead(){return boundary(async()=>{
  const rows=await all<SkillRow>("SELECT id,name,description,category,trigger_phrases,instructions,submitted_by,install_count,created_at FROM skills WHERE approved=1 AND flagged=0 ORDER BY install_count DESC,created_at DESC,id DESC LIMIT 500");
- return reply(rows.map(({trigger_phrases,submitted_by,...r})=>({...r,trigger_phrases:jsonArray(trigger_phrases),submitter_name:submitted_by})));
+ return reply(rows.map(({trigger_phrases,submitted_by,...r})=>({...r,category:skillCategory(r.category),trigger_phrases:jsonArray(trigger_phrases),submitter_name:submitted_by})));
 });}
 export function skillSubmit(req:Request){return boundary(async()=>{
- const b=await body(req),name=text(b,"name",100,true),description=text(b,"description",500,true),category=text(b,"category",40,true).toLowerCase(),instructions=text(b,"instructions",10000,true),phrases=arrayValue(b,"trigger_phrases",10,200);
- if(description.length<10||instructions.length<20||!phrases.length||!["research","productivity","social","utility","creative"].includes(category))throw new CommunityError(400,"Invalid skill submission");
+ const b=await body(req),name=text(b,"name",100,true),description=text(b,"description",500,true),category=skillCategory(text(b,"category",40,true)),instructions=text(b,"instructions",10000,true),phrases=arrayValue(b,"trigger_phrases",10,200);
+ if(description.length<10||instructions.length<20||!phrases.length||!skillCategories.includes(category))throw new CommunityError(400,"Invalid skill submission");
  // Header is preferred; body key remains a legacy public interface. Claimed agent_id never grants identity.
  const key=req.headers.get("x-api-key")||text(b,"api_key",512),agent=key?await getAgentByApiKey(key):null;
  if(key&&!agent)throw new CommunityError(401,"Invalid API key");if(agent?.muted)throw new CommunityError(403,"Agent is muted");
@@ -221,7 +280,7 @@ export function skillExport(req:Request,ctx:RouteContext){return boundary(async(
  void req;const {id}=await ctx.params,r=await first<SkillRow>("SELECT id,name,description,category,trigger_phrases,instructions,submitted_by,install_count,created_at FROM skills WHERE id=? AND approved=1 AND flagged=0",id);
  if(!r)throw new CommunityError(404,"Skill not found");
  const name=r.name.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"skill";
- return reply({format:"clawpack-v1",version:"1.0",name:r.name,description:r.description,instructions:r.instructions,trigger_phrases:jsonArray(r.trigger_phrases),category:r.category,metadata:{submitted_by:r.submitted_by,exported_at:new Date().toISOString(),source:"agentbuildersclub.dev"}},200,{"Content-Disposition":`attachment; filename="${name}.clawpack"`});
+ return reply({format:"clawpack-v1",version:"1.0",name:r.name,description:r.description,instructions:r.instructions,trigger_phrases:jsonArray(r.trigger_phrases),category:skillCategory(r.category),metadata:{submitted_by:r.submitted_by,exported_at:new Date().toISOString(),source:"agentbuildersclub.dev"}},200,{"Content-Disposition":`attachment; filename="${name}.clawpack"`});
 });}
 type ContactRow={id:string;name:string;email:string;topic:string;message:string;notification_status:string;notification_provider_id:string|null;request_hash:string|null};
 async function deliver(row:ContactRow,allowRetry=false):Promise<string>{
@@ -244,14 +303,21 @@ export function contactCreate(req:Request){return boundary(async()=>{
  const name=text(b,"name",100,true),email=text(b,"email",254,true).toLowerCase(),message=text(b,"message",5000,true),topic=text(b,"topic",100);
  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw new CommunityError(400,"Valid email required");
  const token=idempotency(req),requestHash=hashApiKey(JSON.stringify([name,email,topic,message]));
- const requestKey=hashApiKey(`${getClientIP(req)}:${token??`inquiry:${requestHash}`}`);
- let row=requestKey?await first<ContactRow>("SELECT * FROM contact_messages WHERE request_key=?",requestKey):null;
+ const legacyKey=hashApiKey(`${getClientIP(req)}:${token??`inquiry:${requestHash}`}`);
+ // Explicit caller keys keep durable replay/conflict semantics. Implicit keys
+ // are fresh per accepted inquiry; the fingerprint is a rolling-window lookup.
+ const implicitFingerprint=token?null:legacyKey;
+ const requestKey=token?legacyKey:randomUUID();
+ const lookup=()=>token
+  ?first<ContactRow>("SELECT * FROM contact_messages WHERE request_key=?",requestKey)
+  :first<ContactRow>("SELECT * FROM contact_messages WHERE (implicit_fingerprint=? OR (implicit_fingerprint IS NULL AND request_key=?)) AND julianday(created_at)>julianday('now','-30 minutes') ORDER BY created_at DESC,id DESC LIMIT 1",implicitFingerprint,legacyKey);
+ let row=await lookup();
  if(row&&row.request_hash!==requestHash)throw new CommunityError(409,"Idempotency key already used for another inquiry");
  let replayed=Boolean(row);
  if(!row){
   await rate(req,"contact");const id=randomUUID();
-  try{await run("INSERT INTO contact_messages(id,name,email,topic,message,request_key,request_hash,notification_status) VALUES(?,?,?,?,?,?,?,'pending')",id,name,email,topic,message,requestKey,requestHash);}
-  catch(e){if(!requestKey)throw e;row=await first<ContactRow>("SELECT * FROM contact_messages WHERE request_key=?",requestKey);if(!row||row.request_hash!==requestHash)throw e;replayed=true;}
+  try{await run("INSERT INTO contact_messages(id,name,email,topic,message,request_key,request_hash,notification_status,implicit_fingerprint) VALUES(?,?,?,?,?,?,?,'pending',?)",id,name,email,topic,message,requestKey,requestHash,implicitFingerprint);}
+  catch(e){row=await lookup();if(!row)throw e;if(row.request_hash!==requestHash)throw new CommunityError(409,"Idempotency key already used for another inquiry");replayed=true;}
   row=row??await first<ContactRow>("SELECT * FROM contact_messages WHERE id=?",id);
  }
  if(!row)throw Error("Contact readback unavailable");

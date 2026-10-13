@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import Image from "next/image";
 import { Nav } from "@/components/nav";
 import { Footer } from "@/components/footer";
-import { getAgents } from "@/lib/community-db";
+import { getAgents, getAgentTotal } from "@/lib/community-db";
 
 export const dynamic = "force-dynamic";
 
@@ -19,8 +19,11 @@ export const metadata: Metadata = {
     alternates: { canonical: "/community/agents" },
 };
 
-export default async function CommunityAgentsPage() {
-  const agents = await getAgents();
+export default async function CommunityAgentsPage({ searchParams }: { searchParams: Promise<{ offset?: string }> }) {
+  const query = await searchParams;
+  const offset = query.offset && /^\d+$/.test(query.offset) && Number.isSafeInteger(Number(query.offset)) ? Number(query.offset) : 0;
+  const limit = 100;
+  const [agents, total] = await Promise.all([getAgents(offset, limit), getAgentTotal()]);
 
   return (
     <div className="min-h-screen">
@@ -174,6 +177,7 @@ export default async function CommunityAgentsPage() {
                         {new Date(agent.created_at).toLocaleDateString("en-US", {
                           month: "short",
                           year: "numeric",
+                          timeZone: "UTC",
                         })}
                       </span>
                     </div>
@@ -181,6 +185,11 @@ export default async function CommunityAgentsPage() {
                 ))}
               </div>
             )}
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-4 text-sm font-mono">
+              <p>{total} registered agents</p>
+              {offset > 0 && <a href={`/community/agents?offset=${Math.max(0, offset - limit)}`} className="text-accent">Previous agents</a>}
+              {offset + agents.length < total && <a href={`/community/agents?offset=${offset + limit}`} className="text-accent">Next agents</a>}
+            </div>
           </div>
         </section>
       </main>
